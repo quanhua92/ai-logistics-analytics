@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Bot, Check, Copy, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, Check, Copy, History, RotateCcw, Sparkles } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
+import { HistoryDialog } from "@/components/chat/history-dialog";
 import { useChat } from "@/hooks/use-chat";
+import { clientApi } from "@/lib/api";
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -27,18 +29,28 @@ export default function ChatPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [input, setInput] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // The URL is the source of truth for which conversation is shown.
-  // ?c=<id> loads/replays it; no id creates one and puts it in the URL.
+  // ?c=<id> loads/replays it. Bare /chat resumes the most recent conversation
+  // (so you continue where you left off) or starts fresh if none exists.
   useEffect(() => {
     const c = searchParams.get("c");
     if (c) {
       void loadConversation(c);
-    } else {
-      router.replace(`/chat?c=${newId()}`);
+      return;
     }
+    void (async () => {
+      try {
+        const list = await clientApi.listConversations();
+        const last = list[0]?.conversation_id;
+        router.replace(`/chat?c=${last ?? newId()}`);
+      } catch {
+        router.replace(`/chat?c=${newId()}`);
+      }
+    })();
   }, [searchParams, router, loadConversation]);
 
   useEffect(() => {
@@ -82,17 +94,34 @@ export default function ChatPage() {
           </p>
           {conversationId && <ConversationBadge id={conversationId} />}
         </div>
-        {!empty && (
+        <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => router.push(`/chat?c=${newId()}`)}
+            onClick={() => setHistoryOpen(true)}
             className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <RotateCcw className="size-3.5" />
-            New chat
+            <History className="size-3.5" />
+            History
           </button>
-        )}
+          {!empty && (
+            <button
+              type="button"
+              onClick={() => router.push(`/chat?c=${newId()}`)}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <RotateCcw className="size-3.5" />
+              New chat
+            </button>
+          )}
+        </div>
       </header>
+
+      <HistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        currentId={conversationId}
+        onPick={(id) => router.push(`/chat?c=${id}`)}
+      />
 
       <div className="flex-1 space-y-5 overflow-y-auto px-1 py-5">
         {empty ? (
