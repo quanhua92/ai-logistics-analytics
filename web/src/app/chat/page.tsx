@@ -16,11 +16,11 @@ function newId() {
 
 const SUGGESTIONS = [
   "Which carrier has the highest delay rate?",
-  "Show order volume trend over 2025",
-  "What's the total revenue by region?",
-  "Which months are worst for delays?",
+  "Show order status breakdown as a donut",
+  "List the 10 most recent orders",
+  "Plot the order values of recent orders as a bar chart",
   "Forecast demand for PAINT for the next 4 months",
-  "Who are our top clients by revenue?",
+  "What's the total revenue by region?",
 ];
 
 export default function ChatPage() {
