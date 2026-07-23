@@ -62,7 +62,12 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState("");
-  const abortRef = useRef(false);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  /** Abort the in-flight stream (keeps whatever has streamed so far). */
+  const stop = useCallback(() => {
+    controllerRef.current?.abort();
+  }, []);
 
   // Hydrate the conversation id from localStorage on mount (SSR-safe).
   useEffect(() => {
@@ -96,7 +101,6 @@ export function useChat() {
     async (question: string) => {
       const q = question.trim();
       if (!q || loading) return;
-      abortRef.current = false;
 
       // Prior completed text turns become the model's context.
       const history: ChatTurn[] = messages
@@ -114,29 +118,46 @@ export function useChat() {
       setMessages((m) => [...m, userMsg, placeholder]);
       setLoading(true);
 
+      const controller = new AbortController();
+      controllerRef.current = controller;
       try {
-        await clientApi.chatStream(q, history, conversationId, {
-          onStatus: () => patch(assistantId, { status: "Thinking…" }),
-          onTool: (name, label, args) => appendTool(assistantId, name, label, args),
-          onToken: (delta) => appendDelta(assistantId, delta),
-          onDone: (payload) =>
-            patch(assistantId, {
-              content: payload.answer,
-              chartType: payload.chart_type,
-              chartData: payload.chart_data,
-              explanation: payload.explanation,
-              scenarioId: payload.scenario_id,
-              streaming: false,
-              status: null,
-            }),
-          onError: (detail) =>
-            patch(assistantId, { content: detail, error: true, streaming: false, status: null }),
-        });
+        await clientApi.chatStream(
+          q,
+          history,
+          conversationId,
+          {
+            onStatus: () => patch(assistantId, { status: "Thinking…" }),
+            onTool: (name, label, args) => appendTool(assistantId, name, label, args),
+            onToken: (delta) => appendDelta(assistantId, delta),
+            onDone: (payload) =>
+              patch(assistantId, {
+                content: payload.answer,
+                chartType: payload.chart_type,
+                chartData: payload.chart_data,
+                explanation: payload.explanation,
+                scenarioId: payload.scenario_id,
+                streaming: false,
+                status: null,
+              }),
+            onError: (detail) =>
+              patch(assistantId, { content: detail, error: true, streaming: false, status: null }),
+          },
+          controller.signal
+        );
       } catch (err) {
-        if (abortRef.current) return;
-        const detail = err instanceof Error ? err.message : "Something went wrong";
-        patch(assistantId, { content: detail, error: true, streaming: false, status: null });
+        const aborted =
+          controller.signal.aborted ||
+          (err instanceof Error && (err.name === "AbortError" || /aborted/i.test(err.message)));
+        if (aborted) {
+          // Keep whatever streamed so far; just stop. (If the message was
+          // cleared by reset/load, patching a gone id is a harmless no-op.)
+          patch(assistantId, { streaming: false, status: null });
+        } else {
+          const detail = err instanceof Error ? err.message : "Something went wrong";
+          patch(assistantId, { content: detail, error: true, streaming: false, status: null });
+        }
       } finally {
+        controllerRef.current = null;
         setLoading(false);
       }
     },
@@ -144,7 +165,7 @@ export function useChat() {
   );
 
   const reset = useCallback(() => {
-    abortRef.current = true;
+    controllerRef.current?.abort();
     setMessages([]);
     setLoading(false);
     const id =
@@ -157,7 +178,7 @@ export function useChat() {
 
   const loadConversation = useCallback(async (id: string) => {
     if (!id) return;
-    abortRef.current = true;
+    controllerRef.current?.abort();
     setLoading(false);
     try {
       const data = await clientApi.getConversation(id);
@@ -198,5 +219,5 @@ export function useChat() {
     }
   }, []);
 
-  return { messages, loading, send, reset, loadConversation, conversationId };
+  return { messages, loading, send, stop, reset, loadConversation, conversationId };
 }

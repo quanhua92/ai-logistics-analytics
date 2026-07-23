@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Bot, History, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, History, RotateCcw, Sparkles, Square } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { HistoryDialog } from "@/components/chat/history-dialog";
@@ -24,7 +24,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPage() {
-  const { messages, loading, send, loadConversation, conversationId } = useChat();
+  const { messages, loading, send, stop, loadConversation, conversationId } = useChat();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [input, setInput] = useState("");
@@ -137,15 +137,26 @@ export default function ChatPage() {
             placeholder="Ask about orders, carriers, delays, revenue, forecasts…"
             className="max-h-40 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground/70"
           />
-          <button
-            type="button"
-            onClick={() => submit()}
-            disabled={!input.trim() || loading}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
-            aria-label="Send"
-          >
-            <ArrowUp className="size-4" />
-          </button>
+          {loading ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive text-white transition-opacity hover:opacity-90"
+              aria-label="Stop generating"
+            >
+              <Square className="size-3.5 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => submit()}
+              disabled={!input.trim()}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
+              aria-label="Send"
+            >
+              <ArrowUp className="size-4" />
+            </button>
+          )}
         </div>
         <p className="mt-1.5 px-1 text-center text-[11px] text-muted-foreground/70">
           Enter to send · Shift+Enter for a new line

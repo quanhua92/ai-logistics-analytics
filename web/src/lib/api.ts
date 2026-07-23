@@ -102,11 +102,18 @@ export interface ChatTurn {
   content: string;
 }
 
-async function postChat(path: string, question: string, history: ChatTurn[], conversationId: string) {
+async function postChat(
+  path: string,
+  question: string,
+  history: ChatTurn[],
+  conversationId: string,
+  signal?: AbortSignal
+) {
   return fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, history, conversation_id: conversationId }),
+    signal,
   });
 }
 
@@ -154,9 +161,10 @@ export const clientApi = {
     question: string,
     history: ChatTurn[],
     conversationId: string,
-    h: ChatStreamHandlers
+    h: ChatStreamHandlers,
+    signal?: AbortSignal
   ): Promise<void> => {
-    const res = await postChat("/api/chat/stream", question, history, conversationId);
+    const res = await postChat("/api/chat/stream", question, history, conversationId, signal);
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));
       throw new Error(detail.detail ?? `API ${res.status}`);
