@@ -116,6 +116,8 @@ function render(chartType: ChartType, data: Record<string, unknown>[]) {
       return <TableView data={data} />;
     case "heatmap":
       return <Heatmap data={data} />;
+    case "forecast":
+      return <Forecast data={data} />;
     default:
       return <TableView data={data} />;
   }
@@ -339,7 +341,7 @@ function Heatmap({ data }: { data: Record<string, unknown>[] }) {
                       }}
                       title={v != null ? String(v) : ""}
                     >
-                      {v != null ? v : ""}
+                      {v != null ? String(v) : ""}
                     </div>
                   </td>
                 );
@@ -352,7 +354,35 @@ function Heatmap({ data }: { data: Record<string, unknown>[] }) {
   );
 }
 
-function Chart({ children }: { children: ReactElement }) {
+function Forecast({ data }: { data: Record<string, unknown>[] }) {
+  // Flat {month, quantity, type} → pivoted {month, historical, forecast}.
+  const byMonth = new Map<string, { historical: number | null; forecast: number | null }>();
+  for (const row of data) {
+    const month = String(row.month);
+    const qty = typeof row.quantity === "number" ? row.quantity : Number(row.quantity);
+    const type = String(row.type);
+    const entry = byMonth.get(month) ?? { historical: null, forecast: null };
+    if (type === "historical") entry.historical = qty;
+    else entry.forecast = qty;
+    byMonth.set(month, entry);
+  }
+  const pivoted = Array.from(byMonth, ([month, v]) => ({ month, ...v }));
+  return (
+    <Chart>
+      <LineChart data={pivoted} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+        <XAxis dataKey="month" {...AXIS} />
+        <YAxis {...AXIS} />
+        <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
+        <Line type="monotone" dataKey="historical" name="Historical" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+        <Line type="monotone" dataKey="forecast" name="Forecast" stroke="#10b981" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} connectNulls />
+        {LEGEND}
+      </LineChart>
+    </Chart>
+  );
+}
+
+function Chart({ children }: { children: ReactElement<any> }) {
   const height = useContext(ChartHeightContext);
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);

@@ -147,4 +147,69 @@
   .recharts-wrapper:focus {
     outline: none;
   }
+  /* Markdown rendering for chat answers. */
+  .prose-chat > :first-child {
+    margin-top: 0;
+  }
+  .prose-chat > :last-child {
+    margin-bottom: 0;
+  }
+  .prose-chat p {
+    margin: 0.5em 0;
+  }
+  .prose-chat strong {
+    font-weight: 600;
+  }
+  .prose-chat ul,
+  .prose-chat ol {
+    margin: 0.4em 0;
+    padding-left: 1.25em;
+  }
+  .prose-chat ul {
+    list-style: disc;
+  }
+  .prose-chat ol {
+    list-style: decimal;
+  }
+  .prose-chat li {
+    margin: 0.15em 0;
+  }
+  .prose-chat code {
+    background: var(--muted);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+    font-size: 0.85em;
+    font-family: var(--font-mono);
+  }
+  .prose-chat table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    font-size: 0.85em;
+  }
+  .prose-chat th,
+  .prose-chat td {
+    border: 1px solid var(--border);
+    padding: 0.3em 0.55em;
+    text-align: left;
+  }
+  .prose-chat th {
+    background: var(--muted);
+    font-weight: 600;
+  }
+  .prose-chat h1,
+  .prose-chat h2,
+  .prose-chat h3 {
+    font-weight: 600;
+    margin: 0.6em 0 0.3em;
+  }
+  .prose-chat h1 {
+    font-size: 1.05em;
+  }
+  .prose-chat h2 {
+    font-size: 1em;
+  }
+  .prose-chat h3 {
+    font-size: 0.95em;
+  }
 }

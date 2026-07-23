@@ -9,7 +9,8 @@ export type ChartType =
   | "multi-line"
   | "stat"
   | "table"
-  | "heatmap";
+  | "heatmap"
+  | "forecast";
 
 export interface KpiResponse {
   total_orders: number;
@@ -56,4 +57,26 @@ export interface ChartResponse {
   chart_type: ChartType;
   data: Record<string, unknown>[];
   explanation: ChartExplanation;
+}
+
+export interface ChatExplanation {
+  metric?: string;
+  dimensions?: string[];
+  method?: string;
+  filters_used?: { field: string; op: string; value: unknown }[];
+  data_summary?: { row_count: number };
+  category?: string;
+  horizon_months?: number;
+  methodology?: string;
+  recommendation?: { peak_forecast_units?: number; safety_stock_units?: number; note?: string };
+  [key: string]: unknown;
+}
+
+export interface ChatResponse {
+  answer: string;
+  chart_type: ChartType | null;
+  chart_data: Record<string, unknown>[] | null;
+  explanation: ChatExplanation | null;
+  scenario_id: string | null;
+  title: string | null;
 }

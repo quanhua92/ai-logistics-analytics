@@ -1,4 +1,4 @@
-import type { ChartResponse, KpiResponse, KpiTrends, ScenarioMeta } from "./types";
+import type { ChartResponse, ChatResponse, KpiResponse, KpiTrends, ScenarioMeta } from "./types";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 
@@ -31,4 +31,16 @@ export const clientApi = {
   kpiTrends: () => clientGet<KpiTrends>("/api/dashboard/kpi-trends"),
   scenarios: () => clientGet<ScenarioMeta[]>("/api/dashboard/scenarios"),
   chart: (id: string) => clientGet<ChartResponse>(`/api/dashboard/charts/${id}`),
+  chat: (question: string) =>
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail ?? `API ${res.status}`);
+      }
+      return (await res.json()) as ChatResponse;
+    }),
 };
