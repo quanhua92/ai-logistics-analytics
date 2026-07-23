@@ -15,6 +15,7 @@ from app import schemas
 from app.config import settings
 from app.db import DbSession
 from app.services import ai_orchestrator
+from app.utils.input_guard import guard_input
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -34,6 +35,9 @@ async def chat(
     x_chat_key: str | None = Header(default=None, alias="X-Chat-Key"),
 ) -> schemas.ChatResponse:
     _check_key(x_chat_key)
+    allowed, reason = guard_input(body.question)
+    if not allowed:
+        raise HTTPException(status_code=400, detail=reason)
     if not settings.openrouter_api_key:
         raise HTTPException(
             status_code=503,
