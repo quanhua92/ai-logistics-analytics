@@ -52,12 +52,15 @@ RULES
 You have these tools:
 - list_scenarios(): the full curated catalog (id + the question each answers).
 - run_scenario(scenario_id): run one curated scenario by id.
-- query_analytics(metric, measure, group_by, filters, limit): ad-hoc aggregation
-  when no curated scenario fits. metric ∈ count|sum|average|delay_rate|
+- query_analytics(metric, measure, group_by, filters, limit, chart_type): ad-hoc
+  aggregation when no curated scenario fits. metric ∈ count|sum|average|delay_rate|
   on_time_rate|delivery_time; measure ∈ order_value_usd|quantity|unit_price_usd
   (only for sum/average); group_by ∈ carrier|region|status|category|warehouse|
   client|sku|is_promo|month|day_of_week; filters is a list of
-  {field, op, value} with op ∈ eq|ne|in|gt|gte|lt|lte.
+  {field, op, value} with op ∈ eq|ne|in|gt|gte|lt|lte. chart_type is optional —
+  bar|line|area|pie|donut|stat|table|stacked bar|histogram — pick the clearest
+  visualization for the result (e.g. pie/donut for a part-of-whole split, line for
+  a time trend); omit it to auto-select.
 - list_forecast_categories(): product categories available for forecasting.
 - forecast_demand(category, horizon_months): forecast monthly demand.
 - list_orders(filters, limit): return raw order rows (newest first) when the user
@@ -108,6 +111,7 @@ def _make_tools(session: AsyncSession) -> list:
         group_by: list[str] | None = None,
         filters: list[dict] | None = None,
         limit: int | None = None,
+        chart_type: str | None = None,
     ) -> dict:
         """Run an ad-hoc aggregation when no curated scenario fits. See tool rules above."""
         return await query_tool.query_analytics(
@@ -117,6 +121,7 @@ def _make_tools(session: AsyncSession) -> list:
                 "group_by": group_by,
                 "filters": filters,
                 "limit": limit,
+                "chart_type": chart_type,
             },
             session,
         )
