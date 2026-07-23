@@ -206,6 +206,10 @@ def _tool_label(name: str, args: dict) -> str:
         cat = args.get("category", "?")
         horizon = args.get("horizon_months")
         return f"Forecasting {cat}" + (f" ({horizon}mo)" if horizon else "")
+    if name == "list_orders":
+        filters = args.get("filters") or {}
+        bits = [f"{k}={v}" for k, v in filters.items()]
+        return "Looking up orders" + (f" ({', '.join(bits)})" if bits else "")
     if name == "list_scenarios":
         return "Loading scenario catalog"
     if name == "list_forecast_categories":

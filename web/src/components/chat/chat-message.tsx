@@ -1,7 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
-import { Bot, Loader2, User } from "lucide-react";
+import { Bot, Loader2, User, Wrench } from "lucide-react";
 
 import { ChartRenderer } from "@/components/charts/chart-renderer";
 import { ExplanationPanel } from "@/components/chat/explanation-panel";
@@ -33,7 +33,8 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
     message.chartData.length > 0 &&
     !!message.chartType &&
     message.chartType !== "table";
-  const streamingPlaceholder = message.streaming && !message.content;
+  const showSpinner = !!message.streaming && !message.content;
+  const hasTools = !!message.tools && message.tools.length > 0;
 
   return (
     <div className="flex justify-start">
@@ -46,18 +47,34 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
           <Bot className="size-3.5" />
         </div>
         <div className="min-w-0 flex-1 space-y-2">
+          {hasTools && (
+            <div className="flex flex-wrap gap-1.5">
+              {message.tools!.map((t, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground"
+                >
+                  <Wrench className="size-3 shrink-0" />
+                  {t.label}
+                </span>
+              ))}
+            </div>
+          )}
+
           {message.error ? (
             <p className="rounded-2xl rounded-tl-sm border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive">
               {message.content}
             </p>
-          ) : streamingPlaceholder ? (
-            <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm text-muted-foreground shadow-card">
-              <Loader2 className="size-3.5 animate-spin text-primary" />
-              <span>{message.status ?? "Thinking…"}</span>
-            </div>
-          ) : (
+          ) : message.content ? (
             <div className="prose-chat rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm leading-relaxed shadow-card">
               <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          ) : null}
+
+          {showSpinner && (
+            <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm text-muted-foreground shadow-card">
+              <Loader2 className="size-3.5 animate-spin text-primary" />
+              <span>{hasTools ? "Working…" : (message.status ?? "Thinking…")}</span>
             </div>
           )}
 
