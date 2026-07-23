@@ -12,6 +12,7 @@ SELECT
     COUNT(*)                                           AS total_orders,
     COUNT(*) FILTER (WHERE status = 'delivered')       AS delivered,
     COUNT(*) FILTER (WHERE status = 'delayed')         AS delayed,
+    COUNT(*) FILTER (WHERE status = 'exception')       AS exceptions,
     COUNT(*) FILTER (WHERE status = 'in_transit')      AS in_transit,
     AVG(delivery_date - order_date)
         FILTER (WHERE delivery_date IS NOT NULL)       AS avg_delivery_days,
@@ -29,6 +30,7 @@ async def kpis(db: DbSession):
         total_orders=r.total_orders,
         delivered=r.delivered,
         delayed=r.delayed,
+        exceptions=r.exceptions,
         in_transit=r.in_transit,
         on_time_rate=round(on_time, 1),
         avg_delivery_days=round(float(r.avg_delivery_days), 1) if r.avg_delivery_days is not None else None,

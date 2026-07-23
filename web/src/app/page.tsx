@@ -13,6 +13,8 @@ const CURATED = [
   "status_distribution",
   "revenue_by_category",
   "top_clients",
+  "on_time_trend",
+  "carrier_market_share",
 ];
 
 export default async function Home() {
@@ -44,7 +46,7 @@ export default async function Home() {
             Explore all 32 →
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {charts.map((c) => (
             <ChartPanel key={c.id} chart={c} />
           ))}

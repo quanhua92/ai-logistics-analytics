@@ -15,6 +15,7 @@ export interface KpiResponse {
   total_orders: number;
   delivered: number;
   delayed: number;
+  exceptions: number;
   in_transit: number;
   on_time_rate: number;
   avg_delivery_days: number | null;

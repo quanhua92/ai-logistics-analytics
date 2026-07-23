@@ -7,25 +7,63 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
 import type { ChartType } from "@/lib/types";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6"];
+const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#f43f5e", "#8b5cf6"];
 
-const AXIS = { stroke: "#9ca3af", fontSize: 11, tickLine: false };
+const AXIS = { stroke: "#94a3b8", fontSize: 11, tickLine: false };
+const GRID = "#eef2f7";
 
 interface Props {
   chartType: ChartType;
   data: Record<string, unknown>[];
 }
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
+      {label != null && label !== "" && (
+        <div className="mb-1 font-medium text-foreground">{String(label)}</div>
+      )}
+      {payload.map((p: any, i: number) => (
+        <div key={i} className="flex items-center gap-2 text-muted-foreground">
+          <span className="size-2 rounded-full" style={{ background: p.color || p.fill }} />
+          <span>{prettify(String(p.name))}</span>
+          <span className="ml-auto font-medium text-foreground tabular-nums">
+            {typeof p.value === "number" ? p.value.toLocaleString() : String(p.value ?? "")}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TOOLTIP = <ChartTooltip />;
+const CURSOR = { fill: "rgba(16,185,129,0.06)" };
+
+const LEGEND = (
+  <Legend
+    verticalAlign="bottom"
+    height={28}
+    iconType="circle"
+    iconSize={8}
+    wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+    formatter={(v: string) => <span className="text-muted-foreground">{prettify(v)}</span>}
+  />
+);
 
 export function ChartRenderer({ chartType, data }: Props) {
   if (!data.length) {
@@ -67,16 +105,18 @@ function Bars({ data, stacked }: { data: Record<string, unknown>[]; stacked?: bo
   return (
     <Chart>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
         <XAxis dataKey={labelKey} {...AXIS} />
         <YAxis {...AXIS} />
+        <Tooltip content={TOOLTIP} cursor={CURSOR} />
+        {valueKeys.length > 1 ? LEGEND : null}
         {valueKeys.map((k, i) => (
           <Bar
             key={k}
             dataKey={k}
             stackId={stacked ? "a" : undefined}
             fill={COLORS[i % COLORS.length]}
-            radius={stacked ? undefined : [3, 3, 0, 0]}
+            radius={stacked ? undefined : [4, 4, 0, 0]}
             maxBarSize={48}
           />
         ))}
@@ -90,9 +130,11 @@ function Lines({ data }: { data: Record<string, unknown>[] }) {
   return (
     <Chart>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
         <XAxis dataKey={labelKey} {...AXIS} />
         <YAxis {...AXIS} />
+        <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
+        {valueKeys.length > 1 ? LEGEND : null}
         {valueKeys.map((k, i) => (
           <Line
             key={k}
@@ -101,6 +143,7 @@ function Lines({ data }: { data: Record<string, unknown>[] }) {
             stroke={COLORS[i % COLORS.length]}
             strokeWidth={2}
             dot={false}
+            activeDot={{ r: 4 }}
           />
         ))}
       </LineChart>
@@ -116,14 +159,16 @@ function Areas({ data }: { data: Record<string, unknown>[] }) {
         <defs>
           {valueKeys.map((k, i) => (
             <linearGradient key={k} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.35} />
+              <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.3} />
               <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.02} />
             </linearGradient>
           ))}
         </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
         <XAxis dataKey={labelKey} {...AXIS} />
         <YAxis {...AXIS} />
+        <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
+        {valueKeys.length > 1 ? LEGEND : null}
         {valueKeys.map((k, i) => (
           <Area
             key={k}
@@ -156,6 +201,8 @@ function PieChartView({ data, donut }: { data: Record<string, unknown>[]; donut?
             <Cell key={i} fill={COLORS[i % COLORS.length]} />
           ))}
         </Pie>
+        <Tooltip content={TOOLTIP} />
+        {LEGEND}
         <XAxis hide />
         <YAxis hide />
       </PieChart>

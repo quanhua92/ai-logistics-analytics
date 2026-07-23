@@ -37,7 +37,7 @@ export function Explorer({ groups }: { groups: ChartGroup[] }) {
 
       {groups.map((g) => (
         <TabsContent key={g.name} value={g.name} className="mt-4">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {g.charts.map((c) => (
               <ChartPanel key={c.id} chart={c} />
             ))}

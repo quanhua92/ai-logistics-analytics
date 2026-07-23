@@ -24,6 +24,7 @@ class KpiResponse(BaseModel):
     total_orders: int
     delivered: int
     delayed: int
+    exceptions: int
     in_transit: int
     on_time_rate: float
     avg_delivery_days: float | None
