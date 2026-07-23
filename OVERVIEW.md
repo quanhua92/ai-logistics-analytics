@@ -52,14 +52,9 @@ The dataset is essentially a table of **400 shipping transactions** spanning a f
 
 ## 3. User Interface Structure
 
-The web application consists of 3 main pages behind a collapsible sidebar:
+The web application consists of 4 pages behind a collapsible sidebar:
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          SIDEBAR (collapsible)                           │
-│   [ Dashboard ]   [ Explore ]   [ Chat ]   [ Forecast ]                 │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+**[ Dashboard ] · [ Explore ] · [ Chat ] · [ Forecast ]**
 
 ### Page 1: Dashboard (`/`)
 
@@ -68,24 +63,25 @@ Designed for immediate operational awareness — the page a logistics manager op
 **Top row — 8 KPI cards** (with sparklines + month-over-month trend deltas, click to expand a trend dialog):
 Total Orders · Delivered · Delayed · Exceptions · In-Transit · On-time Rate · Avg Delivery Days · Total Revenue.
 
-**Below — 8 curated charts** (the most useful scenarios). A link to `/explore` shows all 32 scenarios tabbed by group.
+**Below — 8 curated charts** (the most useful scenarios).
 
-### Page 2: Natural Language AI Chat (`/chat`)
+### Page 2: Explore (`/explore`)
+
+All 32 analytics scenarios tabbed by group (Reliability, Carrier, Volume & Revenue, Routes, Category, Operations). Each renders as an interactive chart with the same ChartRenderer used across the app.
+
+### Page 3: Natural Language AI Chat (`/chat`)
 
 A streaming chat — like ChatGPT but for your logistics data. The answer types out token-by-token; charts pop in when the data arrives.
 
-```
-┌──────────────────────────────────────────────────────┐
-│  [+]  Ask about orders, carriers, delays…      [↑]  │  ← input (suggestions popover, stop btn)
-├──────────────────────────────────────────────────────┤
-│  Which carrier has the highest delay rate?          │  ← you (right-aligned)
-│                                                      │
-│  🔧 Delay rate by carrier  🧠 Thinking ▾            │  ← tool + reasoning (clickable)
-│  GLS has the highest delay rate at 28.6%…           │  ← assistant (left-aligned card)
-│  [====== Bar Chart ======]                           │  ← chart renders inline
-│  ▼ How this was calculated                          │  ← collapsible explanation
-└──────────────────────────────────────────────────────┘
-```
+**Layout (top to bottom):**
+- **Input bar** — `[+]` suggestions popover · textarea · send/stop button
+- **Your messages** — right-aligned emerald bubbles
+- **Assistant messages** — left-aligned neutral cards with:
+  - Tool chips (clickable, expand to show params)
+  - Thinking panel (collapsible, streams reasoning live)
+  - Answer text (markdown: bold, lists, tables)
+  - Inline chart (bar / line / area / pie / donut / table / forecast)
+  - Collapsible "How this was calculated" explanation
 
 Features:
 - **SSE streaming** — answer, tool calls, and reasoning stream live (not a blocking dump).
@@ -99,28 +95,16 @@ Features:
 - **Collapsible explanation** — filters, metric, dimensions, method.
 - **Suggestion popover** — a `+` button next to the input lists starter questions anytime.
 
-### Page 3: Demand Forecasting (`/forecast`)
+### Page 4: Demand Forecasting (`/forecast`)
 
-A category selector + horizon slider → a chart with **three statistical methods** plotted as continuous fitted lines over history + forecast, plus a stock recommendation.
+A category selector + horizon slider produces a chart with **three statistical methods** plotted as continuous fitted lines over history + forecast, plus a stock recommendation.
 
-```
-┌────────────────────────────────────────────────────┐
-│  Category: [BOOK ▼]   Horizon: [████░░] 4 months   │
-├────────────────────────────────────────────────────┤
-│  ┌──────────────────────────────────────────────┐  │
-│  │  ——— Actual   --- Exp. smoothing             │  │
-│  │  --- Linear   --- Moving avg                 │  │
-│  │  12│  ··· ·· ······ ---- ----                │  │
-│  │   8│    ·   ·         fitted →  forecast     │  │
-│  │   4│  ·                                   ·  │  │
-│  │    └───────────────────────────────────────  │  │
-│  │    J F M A M J J A S O N D   J F M A         │  │
-│  │           2025 (actual)     2026 (forecast)  │  │
-│  └──────────────────────────────────────────────┘  │
-│  📦 Stock ~12 units (peak + 20% safety margin)      │
-│  Mean 7.9/mo · Std 5.3 · 3 methods · no ML          │
-└────────────────────────────────────────────────────┘
-```
+**Layout:**
+- **Controls** — Category dropdown (8 categories) + Horizon slider (1–12 months)
+- **Chart** — Actual (solid line) overlaid with three fitted+forecast methods (dashed):
+  - Exp. smoothing (emerald, primary) · Linear regression (blue) · Moving avg (amber)
+- **Recommendation card** — safety stock units (peak + 20% margin)
+- **Readiness + methodology** — mean/std-dev/data-points + stats explanation
 
 Each method's **fitted line spans the whole timeline** (computed over history + projected forward), so you see the estimated trend overlaid on actuals — not just disconnected future dots.
 

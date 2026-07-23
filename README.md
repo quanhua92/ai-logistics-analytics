@@ -25,39 +25,49 @@ An interactive analytics platform for a shipping company — ask questions in pl
 
 ### Prerequisites
 
-- **Docker** (for PostgreSQL)
-- **Python 3.13+** with [`uv`](https://docs.astral.sh/uv/) (`pip install uv`)
-- **Node.js 22+** with `pnpm` (`corepack enable pnpm`)
+- **Docker** (for PostgreSQL, or the full stack)
+- **Python 3.13+** with [`uv`](https://docs.astral.sh/uv/) (`pip install uv`) — local dev only
+- **Node.js 22+** with `pnpm` (`corepack enable pnpm`) — local dev only
 
-### 1. Start PostgreSQL
+### Option A — Docker (full stack, no local setup)
+
+Runs all three services (PostgreSQL + FastAPI + Next.js) in containers:
 
 ```bash
-docker compose up -d    # PostgreSQL on localhost:15443
+cp server/.env.example server/.env     # fill in OPENROUTER_API_KEY
+docker compose up -d --build           # builds + starts all 3 containers
 ```
 
-### 2. Backend
+- **App:** http://localhost:3000
+- **API:** http://localhost:8000/api/health
+- **Stop:** `docker compose down`
+
+The server auto-runs migrations + seeds the data on startup. Chat logs persist in a Docker volume.
+
+### Option B — Local dev (PostgreSQL in Docker, backend + frontend on host)
 
 ```bash
+# 1. Start PostgreSQL only
+docker compose up -d postgres
+
+# 2. Backend
 cd server
-cp .env.example .env     # fill in OPENROUTER_API_KEY
-uv sync                  # install deps
+cp .env.example .env          # fill in OPENROUTER_API_KEY
+uv sync                       # install deps
 uv run alembic upgrade head   # create schema
 uv run python data/seed.py    # load 400 orders from CSV
 uv run uvicorn app.main:app --reload --port 8000
-```
 
-### 3. Frontend
-
-```bash
+# 3. Frontend (in another terminal)
 cd web
 pnpm install
-pnpm dev                 # http://localhost:3000
+pnpm dev                      # http://localhost:3000
 ```
 
-Or use the all-in-one launcher:
+Or use the all-in-one dev launcher (starts postgres + backend + frontend on the host):
 
 ```bash
-./scripts/run-all.sh           # start backend + frontend + postgres
+./scripts/run-all.sh           # start everything
 ./scripts/run-all.sh --stop    # stop everything
 ```
 
@@ -75,7 +85,7 @@ Or use the all-in-one launcher:
 | `CHAT_LOG_DIR` | no | Per-conversation JSONL log directory (default `.chat-logs`) |
 | `CORS_ORIGINS` | no | Comma-separated allowed origins |
 
-**`web/`** — no env file needed in dev (the Next.js rewrite proxy handles API routing). For production, set `BACKEND_URL` server-side.
+**`web/`** — no env file needed in dev (the catch-all Route Handler defaults `BACKEND_URL` to `http://localhost:8000`). For Docker/production, set `BACKEND_URL` at runtime (e.g. `http://server:8000` for the Docker service name).
 
 ---
 
