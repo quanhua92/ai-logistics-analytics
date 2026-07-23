@@ -22,6 +22,18 @@ export interface KpiResponse {
   total_revenue: number;
 }
 
+export interface KpiTrendPoint {
+  month: string;
+  value: number;
+}
+
+export interface KpiTrend {
+  series: KpiTrendPoint[];
+  delta_pct: number | null;
+}
+
+export type KpiTrends = Record<string, KpiTrend>;
+
 export interface ScenarioMeta {
   id: string;
   group: string;

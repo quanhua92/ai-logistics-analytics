@@ -1,4 +1,4 @@
-import type { ChartResponse, KpiResponse, ScenarioMeta } from "./types";
+import type { ChartResponse, KpiResponse, KpiTrends, ScenarioMeta } from "./types";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 
@@ -21,12 +21,14 @@ async function clientGet<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const serverApi = {
   kpis: () => serverGet<KpiResponse>("/api/dashboard/kpis"),
+  kpiTrends: () => serverGet<KpiTrends>("/api/dashboard/kpi-trends"),
   scenarios: () => serverGet<ScenarioMeta[]>("/api/dashboard/scenarios"),
   chart: (id: string) => serverGet<ChartResponse>(`/api/dashboard/charts/${id}`),
 };
 
 export const clientApi = {
   kpis: () => clientGet<KpiResponse>("/api/dashboard/kpis"),
+  kpiTrends: () => clientGet<KpiTrends>("/api/dashboard/kpi-trends"),
   scenarios: () => clientGet<ScenarioMeta[]>("/api/dashboard/scenarios"),
   chart: (id: string) => clientGet<ChartResponse>(`/api/dashboard/charts/${id}`),
 };

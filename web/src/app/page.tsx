@@ -18,8 +18,9 @@ const CURATED = [
 ];
 
 export default async function Home() {
-  const [kpis, charts] = await Promise.all([
+  const [kpis, trends, charts] = await Promise.all([
     serverApi.kpis(),
+    serverApi.kpiTrends(),
     Promise.all(CURATED.map((id) => serverApi.chart(id))),
   ]);
 
@@ -32,7 +33,7 @@ export default async function Home() {
         </p>
       </header>
 
-      <KpiGrid kpis={kpis} />
+      <KpiGrid kpis={kpis} trends={trends} />
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
