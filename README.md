@@ -1,6 +1,10 @@
 # AI-Powered Logistics Analytics Dashboard
 
-An interactive analytics platform for a shipping company — ask questions in plain English, get answers with live charts, and forecast demand. Built as a take-home assignment demonstrating full-stack development, responsible AI orchestration, and statistical forecasting.
+> **Live demo:** https://ai-logistics-analytics.huahongquan.com/
+>
+> **Chat access key:** request via **quanhua92@gmail.com** (the chat endpoint is gated; the dashboard and forecast pages are open).
+
+An interactive analytics platform for a shipping company — ask questions in plain English, get answers with live charts, and forecast demand. Built as a coding challenge demonstrating full-stack development, responsible AI orchestration, and statistical forecasting.
 
 **Three levels of intelligence:**
 1. **Dashboard** — KPIs, charts, and a 32-scenario explorer
@@ -110,10 +114,6 @@ docker run -p 8000:8000 --env-file server/.env logistics-api
 docker run -p 3000:3000 -e BACKEND_URL=http://logistics-api:8000 logistics-web
 ```
 
-> **Deployed URL:** _(will be added after deployment)_
->
-> **Chat access key:** request via **quanhua92@gmail.com** (the chat endpoint is gated; the dashboard and forecast pages are open).
-
 ---
 
 ## Architecture
@@ -219,7 +219,6 @@ Available at `/forecast` (direct form, no AI) and via the chat's `forecast_deman
 - **Per-IP rate limiting** (switch from global to `get_remote_address` once behind a trusted proxy with `--proxy-headers`)
 - **MCP adapter** — expose tools to external AI clients (the shared core exists; the value is limited since they can't render charts)
 - **Query caching** — cache dashboard KPIs/charts with a TTL
-- **Docker Compose** for local dev (postgres + backend + frontend in one command)
 - **Streaming tool decisions** — show the model's tool-selection reasoning live
 - **Export to CSV** — download chart data
 - **Date-range filtering** on the dashboard
@@ -266,7 +265,7 @@ spaceship/
 │   │   ├── hooks/
 │   │   └── lib/
 │   └── Dockerfile
-├── docker-compose.yml         # PostgreSQL only (dev)
+├── docker-compose.yml         # PostgreSQL + server + web (full stack)
 ├── scripts/run-all.sh         # Dev launcher (backend + frontend + postgres)
 ├── OVERVIEW.md                # Detailed architecture guide
 └── README.md                  # This file
