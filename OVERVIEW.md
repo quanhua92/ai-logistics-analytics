@@ -1,48 +1,48 @@
-# Logistics AI Analytics Dashboard - Overview & Architecture Guide
+# Logistics AI Analytics Dashboard — Overview & Architecture Guide
 
 ## 1. What Is This Project?
 
-This project is an **AI-powered Logistics Analytics Dashboard** - a control center for a shipping company. Imagine a logistics manager who oversees hundreds of shipments across carriers (FedEx, UPS, DHL, etc.) every month. Currently, operational data sits in flat spreadsheets. This application turns that raw logistics data into an **interactive, intelligent web dashboard** that lets people ask questions in plain English and get answers visually.
+This project is an **AI-powered Logistics Analytics Dashboard** — a control center for a shipping company. Imagine a logistics manager who oversees hundreds of shipments across carriers (FedEx, UPS, DHL, etc.) every month. Currently, operational data sits in flat spreadsheets. This application turns that raw logistics data into an **interactive, intelligent web dashboard** that lets people ask questions in plain English and get answers visually.
 
 The app does three things, each progressively smarter:
 
-1. **Descriptive - Show me what happened**
+1. **Descriptive — Show me what happened**
    A dashboard with numbers and charts. "We shipped 400 orders, 55 were late, our on-time rate is 84.7%."
 
-2. **Diagnostic - Help me understand why**
-   A chat box where you type questions like "Which carrier has the highest delay rate?" and the system gives you the answer + a chart + an explanation of how it got that answer.
+2. **Diagnostic — Help me understand why**
+   A streaming chat where you type questions like "Which carrier has the highest delay rate?" and the system gives you a live answer + a chart + a collapsible explanation of how it got that answer.
 
-3. **Predictive - Tell me what's coming**
-   A forecasting tool where you pick a product category and it predicts how much demand to expect in the next few months, so you can plan inventory.
+3. **Predictive — Tell me what's coming**
+   A forecasting tool where you pick a product category and it predicts how much demand to expect in the next few months (three statistical methods, fitted over history + projected forward), so you can plan inventory.
 
 ---
 
-## 2. Data Overview (`mock_logistics_data.csv`)
+## 2. Data Overview (`server/data/logistics_data.csv`)
 
-The dataset is essentially a table of **400 shipping transactions** spanning a full year (Jan 1, 2025 - Dec 30, 2025). Each row is one order.
+The dataset is essentially a table of **400 shipping transactions** spanning a full year (Jan 1, 2025 – Dec 30, 2025). Each row is one order.
 
 ### Example Row (in plain English)
 
-> Client **CL-1023** placed order **ORD-0001** on **Oct 19, 2025**. It was **2 units** of **PAPER** (SKU `PAPER-0197`) at **$13.11** each, totaling **$26.22**. It shipped from **London** via **DHL** to **Leeds**, out of warehouse **LON-FC1** in the **UK** region. It was delivered on **Oct 22** - that's **3 days**. Status: **delivered**. No promotion.
+> Client **CL-1023** placed order **ORD-0001** on **Oct 19, 2025**. It was **2 units** of **PAPER** (SKU `PAPER-0197`) at **$13.11** each, totaling **$26.22**. It shipped from **London** via **DHL** to **Leeds**, out of warehouse **LON-FC1** in the **UK** region. It was delivered on **Oct 22** — that's **3 days**. Status: **delivered**. No promotion.
 
 ### Key Dimensions (what you can slice by)
 
 | Dimension         | What it means          | Count & Values                                                              |
 | ----------------- | ---------------------- | --------------------------------------------------------------------------- |
-| Carrier           | Who shipped it         | 9 - FedEx, UPS, DHL, USPS, OnTrac, LaserShip, Royal Mail, DPD, GLS          |
-| Status            | What happened          | 5 - delivered (76%), delayed (13.8%), in_transit (6.8%), exception (2.8%), canceled (0.8%) |
-| Product Category  | What was shipped       | 8 - CRAYON, STICKER, MARKER, BRUSH, PAINT, PENCIL, PAPER, BOOK              |
-| Region            | Where it went          | 5 - US-E, US-W, US-C, UK, EU                                                |
-| Warehouse         | Where it shipped from  | 9 - LON-FC1, EWR-DC1, SFO-DC2, ATL-DC1, LAX-DC1, AMS-FC1, DFW-DC1, BER-FC1, CHI-DC1 |
-| Client            | Who ordered it         | 30 clients                                                                  |
-| Time              | When                   | 12 months, Jan-Dec 2025                                                     |
+| Carrier           | Who shipped it         | 9 — FedEx, UPS, DHL, USPS, OnTrac, LaserShip, Royal Mail, DPD, GLS          |
+| Status            | What happened          | 5 — delivered (76%), delayed (13.8%), in_transit (6.8%), exception (2.8%), canceled (0.8%) |
+| Product Category  | What was shipped       | 8 — CRAYON, STICKER, MARKER, BRUSH, PAINT, PENCIL, PAPER, BOOK              |
+| Region            | Where it went          | 5 — US-E, US-W, US-C, UK, EU                                                |
+| Warehouse         | Where it shipped from  | 9 — LON-FC1, EWR-DC1, SFO-DC2, ATL-DC1, LAX-DC1, AMS-FC1, DFW-DC1, BER-FC1, CHI-DC1 |
+| Client            | Who ordered            | 30 clients                                                                  |
+| Time              | When                   | 12 months, Jan–Dec 2025                                                     |
 
 ### Key Measures (what you can compute)
 
 | Measure          | Example                                                  |
 | ---------------- | -------------------------------------------------------- |
 | Order count      | 400 total                                                |
-| Delivery time    | avg 3.8 days (range: 1-12)                               |
+| Delivery time    | avg 3.8 days (range: 1–12)                               |
 | Delay rate       | 55 delayed out of 359 completed (delivered + delayed) = 15.3% |
 | Revenue          | $13,695.87 total, $34.24 avg per order                   |
 | Quantity         | Units shipped per order                                  |
@@ -52,97 +52,77 @@ The dataset is essentially a table of **400 shipping transactions** spanning a f
 
 ## 3. User Interface Structure
 
-The web application consists of 3 main pages:
+The web application consists of 3 main pages behind a collapsible sidebar:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                             NAVBAR / SIDEBAR                             │
-│   [ Dashboard ]              [ AI Chat ]           [ Forecast ]       │
+│                          SIDEBAR (collapsible)                           │
+│   [ Dashboard ]   [ Explore ]   [ Chat ]   [ Forecast ]                 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Page 1: Dashboard (`/`)
-Designed for immediate operational awareness - the page a logistics manager opens every morning.
 
-**Top row - 5 KPI cards:**
+Designed for immediate operational awareness — the page a logistics manager opens every morning.
 
-```
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ Total Orders│ │  Delivered  │ │   Delayed   │ │ On-time Rate│ │ Avg Delivery│
-│     400     │ │     304     │ │      55     │ │    84.7%    │ │   3.8 days  │
-└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
-```
+**Top row — 8 KPI cards** (with sparklines + month-over-month trend deltas, click to expand a trend dialog):
+Total Orders · Delivered · Delayed · Exceptions · In-Transit · On-time Rate · Avg Delivery Days · Total Revenue.
 
-**Below - 3 charts side by side:**
+**Below — 8 curated charts** (the most useful scenarios). A link to `/explore` shows all 32 scenarios tabbed by group.
 
-1. **Order volume over time** - line/area chart showing how many orders per month (e.g., Jan had 75, Sep had 18).
-2. **Delivery performance** - stacked bar showing delivered vs delayed each month.
-3. **Carrier breakdown** - bar chart comparing each carrier's delay rate (e.g., DHL 5.3% vs UPS 22.4%).
+### Page 2: Natural Language AI Chat (`/chat`)
 
-### Page 2: Natural Language AI Interface (`/chat`)
-A chat interface - like ChatGPT but for your logistics data.
+A streaming chat — like ChatGPT but for your logistics data. The answer types out token-by-token; charts pop in when the data arrives.
 
 ```
-┌──────────────────────────────────────────────┐
-│   Ask me anything about your logistics data  │
-│                                              │
-│ You: "Which carrier has the highest delay    │
-│       rate?"                                 │
-│                                              │
-│ AI:  UPS has the highest delay rate at 22.4% │
-│      (17 delayed out of 76 completed orders) │
-│                                              │
-│      [====== Bar Chart ======]               │
-│      UPS:        ████████████ 22.4%          │
-│      USPS:       ███████████  23.9%          │
-│      Royal Mail: ██████████   20.8%          │
-│      ...                                     │
-│                                              │
-│      ▼ Explanation                           │
-│      Filters: none                           │
-│      Metric: delay_rate                      │
-│      Grouped by: carrier                     │
-│      Method: delayed / (delivered + delayed) │
-│                                              │
-│ You: [Type your question here...]     [Send] │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  [+]  Ask about orders, carriers, delays…      [↑]  │  ← input (suggestions popover, stop btn)
+├──────────────────────────────────────────────────────┤
+│  Which carrier has the highest delay rate?          │  ← you (right-aligned)
+│                                                      │
+│  🔧 Delay rate by carrier  🧠 Thinking ▾            │  ← tool + reasoning (clickable)
+│  GLS has the highest delay rate at 28.6%…           │  ← assistant (left-aligned card)
+│  [====== Bar Chart ======]                           │  ← chart renders inline
+│  ▼ How this was calculated                          │  ← collapsible explanation
+└──────────────────────────────────────────────────────┘
 ```
 
-Every answer includes:
-1. **Text answer** - direct human-readable response.
-2. **Chart** - dynamically selected (Bar, Line, Pie, Stat Card) when appropriate.
-3. **Collapsible Explanation** - applied filters, metrics, dimensions, and the structured query plan.
-4. **Toggleable raw data preview**.
+Features:
+- **SSE streaming** — answer, tool calls, and reasoning stream live (not a blocking dump).
+- **Tool bubbles** — each tool call shows as a clickable chip that expands its parameters.
+- **Thinking panel** — the model's reasoning streams into a collapsible panel (not persisted).
+- **Inline charts** — bar, line, area, pie, donut, table, forecast — rendered from the tool result.
+- **Conversation history** — prior turns are sent as context; follow-ups work ("what about for UPS?").
+- **History & replay** — conversations are logged to JSONL (per-UUID); `/chat?c=<id>` replays any past conversation; a History dialog browses them.
+- **Stop button** — interrupt streaming mid-generation (keeps partial text).
+- **Access-key gate** — prototype-grade shared-key auth (hashed client-side, never stored raw).
+- **Collapsible explanation** — filters, metric, dimensions, method.
+- **Suggestion popover** — a `+` button next to the input lists starter questions anytime.
 
 ### Page 3: Demand Forecasting (`/forecast`)
-A simple form + result view for predictive inventory planning.
+
+A category selector + horizon slider → a chart with **three statistical methods** plotted as continuous fitted lines over history + forecast, plus a stock recommendation.
 
 ```
-┌────────────────────────────────────────────┐
-│ Demand Forecast                            │
-│                                            │
-│ Product Category: [CRAYON ▼]               │
-│ Forecast Horizon: [4 months]               │
-│                           [Generate]       │
-│                                            │
-│ ┌────────────────────────────────────────┐  │
-│ │  Historical ── + Forecast - - -         │  │
-│ │                                       │  │
-│ │  8│         ·                         │  │
-│ │  6│  ·  ·  · ·  ·           - - - -  │  │
-│ │  4│              · ·  ·  · ·         │  │
-│ │  2│                        · - - -   │  │
-│ │   └──────────────────────────────────│  │
-│ │   J F M A M J J A S O N D J F M A   │  │
-│ │         2025              2026       │  │
-│ └────────────────────────────────────────┘  │
-│                                            │
-│ Recommendation: Stock ~18 units/month       │
-│ Method: Exponential smoothing               │
-└────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  Category: [BOOK ▼]   Horizon: [████░░] 4 months   │
+├────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────┐  │
+│  │  ——— Actual   --- Exp. smoothing             │  │
+│  │  --- Linear   --- Moving avg                 │  │
+│  │  12│  ··· ·· ······ ---- ----                │  │
+│  │   8│    ·   ·         fitted →  forecast     │  │
+│  │   4│  ·                                   ·  │  │
+│  │    └───────────────────────────────────────  │  │
+│  │    J F M A M J J A S O N D   J F M A         │  │
+│  │           2025 (actual)     2026 (forecast)  │  │
+│  └──────────────────────────────────────────────┘  │
+│  📦 Stock ~12 units (peak + 20% safety margin)      │
+│  Mean 7.9/mo · Std 5.3 · 3 methods · no ML          │
+└────────────────────────────────────────────────────┘
 ```
 
-**Visualization**: Historical monthly demand line + dashed future projection with confidence intervals. **Inventory recommendation**: suggested safety stock & reorder numbers based on the model output.
+Each method's **fitted line spans the whole timeline** (computed over history + projected forward), so you see the estimated trend overlaid on actuals — not just disconnected future dots.
 
 ---
 
@@ -150,105 +130,90 @@ A simple form + result view for predictive inventory planning.
 
 ### The Core Flow
 
-This is the most important part architecturally. The AI never touches the database directly - it only decides what to ask for and how to present the answer. All the actual numbers come from backend code.
+The AI never touches the database directly — it only decides which tool to call and then narrates the result. All numbers come from backend computation.
 
-```
-User types a question
-        ↓
-AI (LLM) reads the question and decides:
-  "This is a data query" → calls query_analytics tool
-  "This is a forecast"   → calls forecast_demand tool
-        ↓
-Your backend executes the actual computation
-(real SQL queries, real math - NOT the AI making up numbers)
-        ↓
-Results go back to the AI
-        ↓
-AI formats a human-readable answer + picks a chart type
-        ↓
-Frontend renders: text + chart + explanation
+```mermaid
+flowchart TD
+    Q["User types a question"]
+    LLM["LLM (OpenRouter via LangChain)<br/>reads it and picks a tool"]
+    Q --> LLM
+    LLM -->|"curated scenario"| RS["run_scenario(id)"]
+    LLM -->|"ad-hoc aggregation"| QA["query_analytics(metric, group_by,<br/>filters, chart_type)"]
+    LLM -->|"list / show orders"| LO["list_orders(filters, limit)"]
+    LLM -->|"visualize data"| PD["plot_data(data, chart_type, x, y)"]
+    LLM -->|"predict demand"| FD["forecast_demand(category, horizon)"]
+    RS & QA & LO & PD & FD --> BE["Backend executes the tool<br/>(real SQL / real stats — NOT the AI making up numbers)"]
+    BE --> STREAM["Result streams back:<br/>tool → reasoning → answer tokens → done (full payload)"]
+    STREAM --> UI["Frontend renders:<br/>tool chips + thinking + text + chart + explanation"]
 ```
 
 ### System Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      FRONTEND (Next.js)                 │
-└────────────────────────────┬────────────────────────────┘
-                             │ REST API Call
-                             ▼
-┌─────────────────────────────────────────────────────────┐
-│                    BACKEND (FastAPI)                    │
-│                                                         │
-│  1. User Question ──► AI Orchestrator (LLM)             │
-│                             │                           │
-│                             ▼ Uses OpenAI Function Call │
-│                      Selects Tool Spec                  │
-│                        /          \                     │
-│                       ▼            ▼                    │
-│            ┌──────────────┐     ┌──────────────┐        │
-│            │  Query Tool  │     │ Forecast Tool│        │
-│            └──────┬───────┘     └──────┬───────┘        │
-│                   │                    │                │
-│                   └──────────┬─────────┘                │
-│                              ▼                          │
-│                   Structured Query Builder              │
-│                 (No raw AI SQL execution)               │
-│                              │                          │
-└──────────────────────────────┼──────────────────────────┘
-                               │ Parameterized SQL Query
-                               ▼
-┌─────────────────────────────────────────────────────────┐
-│                    DATABASE (PostgreSQL)                │
-│              (the CSV loaded into a real database)      │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph FE["Frontend (Next.js 16)"]
+        direction LR
+        DASH["Dashboard"]
+        CHATP["AI Chat (SSE stream)"]
+        FCST["Forecast"]
+        CR["ChartRenderer (Recharts)<br/>shadcn/ui (Base UI)"]
+    end
+    subgraph BE["Backend (FastAPI)"]
+        ORCH["AI Orchestrator<br/>(LangChain + ChatOpenRouter)<br/>system prompt + 6 tools + streaming loop"]
+        TOOLS["Tools — shared core (app/tools/)<br/>scenario · query · orders · plot · forecast · list_cats"]
+        GUARD["Input guard (injection filter)<br/>+ rate limit (30/min)"]
+        LOG["Per-conversation JSONL logging"]
+        QB["Safe query builder<br/>(allowlisted fields/ops, no raw SQL)"]
+    end
+    DB[("PostgreSQL 18<br/>orders table (CSV loaded)")]
+    FE <-->|"REST + SSE<br/>(Next rewrite proxy / Route Handler)"| BE
+    BE <-->|"SQLAlchemy (async)"| DB
 ```
 
 **API surface:**
-- `/api/dashboard/*` → direct SQL queries → KPIs & charts
-- `/api/chat` → AI orchestrator → tool selection → SQL → result
-- `/api/forecast` → forecasting model → predictions
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/dashboard/kpis` | 8 KPI values + trends |
+| `GET /api/dashboard/charts/{id}` | Run a curated scenario → chart data |
+| `GET /api/dashboard/scenarios` | The 32-scenario catalog |
+| `POST /api/chat` | Non-streaming chat (JSON) |
+| `POST /api/chat/stream` | **SSE streaming chat** (status/tool/thinking/token/done) |
+| `GET /api/chat/{id}` | Replay a conversation (JSONL → turns) |
+| `GET /api/chat` | List recent conversations |
+| `GET /api/forecast?category=&horizon=` | 3-method forecast (pure stats) |
+| `GET /api/forecast/categories` | Available categories |
+| `GET /api/health` | Health check |
+
+### AI Provider
+
+The model is **any OpenAI-compatible endpoint via OpenRouter** (`ChatOpenRouter` from `langchain-openrouter`). Default model: `openrouter/free` (auto-routes to an available free model). Configurable via `OPENROUTER_MODEL` / `OPENROUTER_API_KEY`. LangChain's `bind_tools` + `astream` powers the streaming tool-calling loop. Reasoning/thinking tokens (when the model supports them) stream to the UI in a collapsible panel.
 
 ### Guiding AI Principles
 
-1. **AI as Router, Not Data Generator**: The LLM *never* fabricates statistical metrics. It interprets user intent, calls registered backend tools with structured parameters, and formats the output.
-2. **Safe Query Construction**: The AI produces JSON query specs (filters, metrics, group_by). The Python backend validates these specs and constructs safe, parameterized SQLAlchemy queries.
-3. **Transparent Explainability**: Every query response is accompanied by metadata explaining *how* the answer was derived - filters, metric, group-by, and computation method.
+1. **AI as Router, Not Data Generator** — the LLM *never* fabricates numbers. It interprets intent, calls a registered tool, and narrates the output.
+2. **Safe Query Construction** — the AI produces structured specs (`{metric, group_by, filters, chart_type}`); the backend validates every field against an allowlist and builds parameterized SQLAlchemy. No raw AI SQL is ever executed.
+3. **Transparent Explainability** — every response carries metadata (filters, metric, dimensions, method).
+4. **Defense in Depth** — an input guard filters prompt-injection patterns before the LLM sees the question; a per-instance rate limit (30/min) caps token spend; a prototype access-key gate (hashed, multi-key, rotation-friendly) protects the chat endpoint.
 
-### One Registry, Three AI Surfaces
+### One Registry, Two AI Surfaces (+ optional MCP)
 
-The standout design decision: **one analytics registry powers every AI surface** - the dashboard, the internal chat agent, and external AI clients all answer from the same code. No drift, no duplicate logic.
-
-```
-                    Scenario Registry + Runner
-              (single source of truth - app/scenarios/)
-                            │
-          ┌─────────────────┼─────────────────┐
-          ▼                 ▼                 ▼
-   REST adapter       OpenAI adapter      MCP adapter
-   /api/dashboard     /api/chat           /mcp
-          │                 │                 │
-          ▼                 ▼                 ▼
-   Dashboard page    Internal chat       External AI
-   (browser)         (OpenAI GPT-4o      (Claude Code,
-                     function calling)    Cursor, ChatGPT)
+```mermaid
+flowchart TD
+    CORE["Shared Tool Core (app/tools/)<br/>single source of truth — 6 tools"]
+    CORE --> REST["REST adapter<br/>/api/dashboard/*"]
+    CORE --> CHAT["Chat adapter (LangChain)<br/>/api/chat + /api/chat/stream"]
+    REST --> DASHP["Dashboard page<br/>(browser)"]
+    CHAT --> AGENT["Internal chat agent<br/>(streaming, charts, history, explanation)"]
+    AGENT -.->|"optional, deferred<br/>external clients can't render charts"| MCP["MCP adapter /mcp<br/>(external AI clients — text/JSON only)"]
 ```
 
-The registry holds two kinds of analytics:
+The **two primary surfaces** are the dashboard (REST → browser) and the internal chat agent (LangChain tool-calling → streaming SSE). Both use the same tools; ask "which carrier has the highest delay rate?" on the dashboard or in chat — identical SQL, identical data.
 
-- **Curated scenario catalog** - a fixed library of verified analytics (delay rate by carrier, on-time trend, p90 delivery, revenue Pareto, etc.). Each scenario declares its own SQL, chart type, and explanation template. Deterministic, safe, fully explainable.
-- **Open-ended query tool** - for ad-hoc questions the catalog doesn't cover, the AI emits a structured spec `{metric, group_by, filters}` and the backend builds parameterized SQL. Still no raw AI SQL.
-
-**Why three adapters?** Different AI clients speak different protocols:
-- The **dashboard** is a browser - it calls REST.
-- The **internal `/chat` agent** uses OpenAI function calling (GPT-4o invokes Python tool functions).
-- **External AI clients** (Claude Code, Cursor, ChatGPT) speak MCP and connect to `/mcp`.
-
-But all three adapters are thin wrappers over the same `runner.run(scenario_id)` call. Ask "which carrier has the highest delay rate?" in the web chat, in the dashboard, or from Claude Code connected to `/mcp` - identical answer, identical SQL, identical explanation.
+**MCP is optional and deferred.** An external MCP client (Claude Code, Cursor) can call the same tools and get the raw data — but it **cannot render charts** the way the internal chat does (the value of this app is the visual rendering: charts, fitted forecast lines, tool bubbles, explanations). MCP would return text/JSON only, losing the visual layer. For that reason it's marked optional and not built yet; the tool core already exists, so wiring it is straightforward if ever needed.
 
 ### Scenario Catalog
 
-The registry holds **33 scenarios** seeded by data exploration (`server/data/explorer.py`). Each is a runnable analytics unit the AI can pick (via `run_scenario`) and the dashboard can render. Every scenario appears identically in the explorer, this catalog, and the agent's system prompt.
+The registry holds **33 scenarios** (32 analytics + 1 forecast). Each is a runnable unit the AI can pick (via `run_scenario`) and the dashboard can render.
 
 **Reliability & performance (8)**
 | id | answers | chart |
@@ -306,13 +271,8 @@ The registry holds **33 scenarios** seeded by data exploration (`server/data/exp
 | `promo_vs_nonpromo` | Do promo orders delay more than non-promo? | bar |
 | `delivery_time_by_region` | Delivery speed by region | bar |
 
-**Forecast (1)**
-| id | answers | chart |
-|---|---|---|
-| `forecast_demand` | Predict demand for a category for the next N months | line (historical + projection) |
-
-The curated catalog (32 analytics + 1 forecast) covers the vast majority of real questions; the open-ended query tool handles anything it doesn't.
+The curated catalog covers the vast majority of real questions; the open-ended `query_analytics` tool (with a choosable `chart_type`) handles anything it doesn't, and `list_orders` + `plot_data` cover raw-row listing and arbitrary visualization.
 
 ---
 
-*That's the whole project. Dashboard, chat, forecast - one dataset, three ways to look at it.*
+*That's the whole project. Dashboard, chat, forecast — one dataset, three ways to look at it, with an AI that routes questions to safe, explainable tools.*
