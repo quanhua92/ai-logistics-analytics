@@ -58,8 +58,8 @@ function DesktopNav() {
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors",
               active
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
             <Icon className={cn("size-4", active && "text-primary")} />

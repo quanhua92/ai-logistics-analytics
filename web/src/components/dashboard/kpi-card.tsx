@@ -18,11 +18,11 @@ import { cn } from "@/lib/utils";
 export type KpiTone = "emerald" | "blue" | "amber" | "rose" | "violet" | "neutral";
 
 const TONES: Record<KpiTone, string> = {
-  emerald: "bg-primary/10 text-primary",
-  blue: "bg-sky-100 text-sky-700",
-  amber: "bg-amber-100 text-amber-700",
-  rose: "bg-rose-100 text-rose-700",
-  violet: "bg-violet-100 text-violet-700",
+  emerald: "bg-emerald-500/10 text-emerald-600",
+  blue: "bg-blue-500/10 text-blue-600",
+  amber: "bg-amber-500/10 text-amber-600",
+  rose: "bg-rose-500/10 text-rose-600",
+  violet: "bg-violet-500/10 text-violet-600",
   neutral: "bg-muted text-muted-foreground",
 };
 
