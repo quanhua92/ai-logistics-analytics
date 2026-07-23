@@ -160,12 +160,37 @@ def _capture_chart(tool_name: str, result: Any) -> dict | None:
     return None
 
 
-async def ask(question: str, session: AsyncSession) -> dict[str, Any]:
-    """Answer a natural-language question, returning answer + chart + explanation."""
+def _tool_label(name: str, args: dict) -> str:
+    """Human-readable label for a tool invocation, surfaced to the UI."""
+    if name == "run_scenario":
+        sid = args.get("scenario_id")
+        sc = registry.get(sid) if sid else None
+        return sc.title if sc else f"Running {sid}"
+    if name == "query_analytics":
+        metric = args.get("metric", "data")
+        dims = args.get("group_by") or []
+        return f"Querying {metric}" + (f" by {', '.join(dims)}" if dims else "")
+    if name == "forecast_demand":
+        cat = args.get("category", "?")
+        horizon = args.get("horizon_months")
+        return f"Forecasting {cat}" + (f" ({horizon}mo)" if horizon else "")
+    if name == "list_scenarios":
+        return "Loading scenario catalog"
+    if name == "list_forecast_categories":
+        return "Loading categories"
+    return name
+
+
+async def ask_stream(question: str, session: AsyncSession):
+    """Async generator yielding SSE event dicts.
+
+    Events: status, tool, token, done, error. The ``done`` event carries the
+    same payload shape as :func:`ask` so streaming and non-streaming clients
+    render identically.
+    """
     if not settings.openrouter_api_key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is not set — add it to server/.env (see .env.example)"
-        )
+        yield {"type": "error", "detail": "OPENROUTER_API_KEY is not set — add it to server/.env"}
+        return
 
     llm = _make_llm()
     tools = _make_tools(session)
@@ -174,29 +199,42 @@ async def ask(question: str, session: AsyncSession) -> dict[str, Any]:
 
     messages: list = [SystemMessage(content=build_system_prompt()), HumanMessage(content=question)]
     chart_payload: dict | None = None
-    last = None
+    acc = None
 
-    for _ in range(_MAX_STEPS):
-        last = await llm_with_tools.ainvoke(messages)
-        messages.append(last)
-        if not getattr(last, "tool_calls", None):
-            break
-        for tc in last.tool_calls:
-            name, args, call_id = tc["name"], tc["args"], tc["id"]
-            try:
-                result = await tool_map[name].ainvoke(args)
-            except Exception as exc:  # surface tool errors to the model so it can recover
-                result = {"error": f"{type(exc).__name__}: {exc}"}
-            captured = _capture_chart(name, result)
-            if captured:
-                chart_payload = captured
-            messages.append(
-                ToolMessage(content=json.dumps(result, default=str), tool_call_id=call_id)
-            )
+    yield {"type": "status", "step": "thinking"}
+    try:
+        for _ in range(_MAX_STEPS):
+            acc = None
+            async for chunk in llm_with_tools.astream(messages):
+                # Stream content deltas as tokens (final-answer text).
+                if chunk.content:
+                    yield {"type": "token", "delta": chunk.content}
+                acc = chunk if acc is None else acc + chunk
+            if acc is None:
+                break
+            messages.append(acc)
+            if not getattr(acc, "tool_calls", None):
+                break
+            for tc in acc.tool_calls:
+                name, args, call_id = tc["name"], tc["args"], tc["id"]
+                yield {"type": "tool", "name": name, "label": _tool_label(name, args)}
+                try:
+                    result = await tool_map[name].ainvoke(args)
+                except Exception as exc:  # surface tool errors to the model so it can recover
+                    result = {"error": f"{type(exc).__name__}: {exc}"}
+                captured = _capture_chart(name, result)
+                if captured:
+                    chart_payload = captured
+                messages.append(
+                    ToolMessage(content=json.dumps(result, default=str), tool_call_id=call_id)
+                )
+    except Exception as exc:
+        yield {"type": "error", "detail": f"{type(exc).__name__}: {exc}"}
+        return
 
-    answer = (last.content if last and last.content else "").strip() or "(no answer)"
-
-    return {
+    answer = (acc.content if acc and acc.content else "").strip() or "(no answer)"
+    yield {
+        "type": "done",
         "answer": answer,
         "chart_type": chart_payload["chart_type"] if chart_payload else None,
         "chart_data": chart_payload["data"] if chart_payload else None,
@@ -204,3 +242,16 @@ async def ask(question: str, session: AsyncSession) -> dict[str, Any]:
         "scenario_id": chart_payload.get("scenario_id") if chart_payload else None,
         "title": chart_payload.get("title") if chart_payload else None,
     }
+
+
+async def ask(question: str, session: AsyncSession) -> dict[str, Any]:
+    """Non-streaming answer: consume ask_stream and return the final payload."""
+    payload: dict[str, Any] | None = None
+    async for event in ask_stream(question, session):
+        if event["type"] == "done":
+            payload = {k: v for k, v in event.items() if k != "type"}
+        elif event["type"] == "error":
+            raise RuntimeError(event["detail"])
+    if payload is None:
+        raise RuntimeError("orchestrator produced no result")
+    return payload

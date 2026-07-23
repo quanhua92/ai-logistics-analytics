@@ -14,6 +14,8 @@ export interface ChatMessageData {
   explanation?: ChatExplanation | null;
   scenarioId?: string | null;
   error?: boolean;
+  streaming?: boolean;
+  status?: string | null;
 }
 
 let _seq = 0;
@@ -24,41 +26,63 @@ export function useChat() {
   const [loading, setLoading] = useState(false);
   const abortRef = useRef(false);
 
-  const send = useCallback(async (question: string) => {
-    const q = question.trim();
-    if (!q || loading) return;
-    abortRef.current = false;
+  const patch = useCallback((id: string, changes: Partial<ChatMessageData>) => {
+    setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, ...changes } : msg)));
+  }, []);
 
-    const userMsg: ChatMessageData = { id: nextId(), role: "user", content: q };
-    setMessages((m) => [...m, userMsg]);
-    setLoading(true);
+  const appendDelta = useCallback((id: string, delta: string) => {
+    setMessages((m) =>
+      m.map((msg) =>
+        msg.id === id ? { ...msg, content: msg.content + delta, status: null } : msg
+      )
+    );
+  }, []);
 
-    try {
-      const res = await clientApi.chat(q);
-      if (abortRef.current) return;
-      setMessages((m) => [
-        ...m,
-        {
-          id: nextId(),
-          role: "assistant",
-          content: res.answer,
-          chartType: res.chart_type,
-          chartData: res.chart_data,
-          explanation: res.explanation,
-          scenarioId: res.scenario_id,
-        },
-      ]);
-    } catch (err) {
-      if (abortRef.current) return;
-      const detail = err instanceof Error ? err.message : "Something went wrong";
-      setMessages((m) => [
-        ...m,
-        { id: nextId(), role: "assistant", content: detail, error: true },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [loading]);
+  const send = useCallback(
+    async (question: string) => {
+      const q = question.trim();
+      if (!q || loading) return;
+      abortRef.current = false;
+
+      const userMsg: ChatMessageData = { id: nextId(), role: "user", content: q };
+      const assistantId = nextId();
+      const placeholder: ChatMessageData = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        streaming: true,
+      };
+      setMessages((m) => [...m, userMsg, placeholder]);
+      setLoading(true);
+
+      try {
+        await clientApi.chatStream(q, {
+          onStatus: () => patch(assistantId, { status: "Thinking…" }),
+          onTool: (label) => patch(assistantId, { status: label }),
+          onToken: (delta) => appendDelta(assistantId, delta),
+          onDone: (payload) =>
+            patch(assistantId, {
+              content: payload.answer,
+              chartType: payload.chart_type,
+              chartData: payload.chart_data,
+              explanation: payload.explanation,
+              scenarioId: payload.scenario_id,
+              streaming: false,
+              status: null,
+            }),
+          onError: (detail) =>
+            patch(assistantId, { content: detail, error: true, streaming: false, status: null }),
+        });
+      } catch (err) {
+        if (abortRef.current) return;
+        const detail = err instanceof Error ? err.message : "Something went wrong";
+        patch(assistantId, { content: detail, error: true, streaming: false, status: null });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loading, patch, appendDelta]
+  );
 
   const reset = useCallback(() => {
     abortRef.current = true;

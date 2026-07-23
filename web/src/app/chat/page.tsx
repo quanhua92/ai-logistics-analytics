@@ -79,7 +79,6 @@ export default function ChatPage() {
         ) : (
           messages.map((m) => <ChatMessage key={m.id} message={m} />)
         )}
-        {loading && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
 
@@ -133,27 +132,6 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
             {q}
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div className="flex justify-start">
-      <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <Bot className="size-3.5" />
-        </div>
-        <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm border bg-card px-4 py-3 shadow-card">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
-          ))}
-        </div>
       </div>
     </div>
   );

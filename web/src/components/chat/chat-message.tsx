@@ -1,7 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
-import { Bot, User } from "lucide-react";
+import { Bot, Loader2, User } from "lucide-react";
 
 import { ChartRenderer } from "@/components/charts/chart-renderer";
 import { ExplanationPanel } from "@/components/chat/explanation-panel";
@@ -26,6 +26,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
   }
 
   const hasChart = message.chartData && message.chartData.length > 0 && message.chartType;
+  const streamingPlaceholder = message.streaming && !message.content;
 
   return (
     <div className="flex justify-start">
@@ -42,6 +43,11 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
             <p className="rounded-2xl rounded-tl-sm border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive">
               {message.content}
             </p>
+          ) : streamingPlaceholder ? (
+            <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm text-muted-foreground shadow-card">
+              <Loader2 className="size-3.5 animate-spin text-primary" />
+              <span>{message.status ?? "Thinking…"}</span>
+            </div>
           ) : (
             <div className="prose-chat rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm leading-relaxed shadow-card">
               <ReactMarkdown>{message.content}</ReactMarkdown>
