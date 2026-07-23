@@ -82,6 +82,9 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
                       <table {...props} />
                     </div>
                   ),
+                  // Charts render via tool results, not markdown. Suppress any
+                  // hallucinated image so it can't show a broken icon.
+                  img: () => null,
                 }}
               >
                 {message.content}
