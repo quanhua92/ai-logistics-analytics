@@ -34,7 +34,11 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
     message.chartData.length > 0 &&
     !!message.chartType &&
     message.chartType !== "table";
-  const showSpinner = !!message.streaming && !message.content;
+  // Whitespace-only content (e.g. a leading newline token) counts as "no content"
+  // so the Thinking… spinner stays until real text arrives — otherwise an empty
+  // card flashes while the model is still composing.
+  const hasContent = !!message.content && message.content.trim().length > 0;
+  const showSpinner = !!message.streaming && !hasContent;
   const hasTools = !!message.tools && message.tools.length > 0;
 
   return (
@@ -66,7 +70,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
             <p className="rounded-2xl rounded-tl-sm border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive">
               {message.content}
             </p>
-          ) : message.content ? (
+          ) : hasContent ? (
             <div className="prose-chat rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm leading-relaxed shadow-card">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
@@ -75,7 +79,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
           {showSpinner && (
             <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm text-muted-foreground shadow-card">
               <Loader2 className="size-3.5 animate-spin text-primary" />
-              <span>{hasTools ? "Working…" : (message.status ?? "Thinking…")}</span>
+              <span>Thinking…</span>
             </div>
           )}
 
