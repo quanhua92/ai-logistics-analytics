@@ -82,29 +82,39 @@ async function consumeChatStream(res: Response, h: ChatStreamHandlers): Promise<
   }
 }
 
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+async function postChat(path: string, question: string, history: ChatTurn[], conversationId: string) {
+  return fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, history, conversation_id: conversationId }),
+  });
+}
+
 export const clientApi = {
   kpis: () => clientGet<KpiResponse>("/api/dashboard/kpis"),
   kpiTrends: () => clientGet<KpiTrends>("/api/dashboard/kpi-trends"),
   scenarios: () => clientGet<ScenarioMeta[]>("/api/dashboard/scenarios"),
   chart: (id: string) => clientGet<ChartResponse>(`/api/dashboard/charts/${id}`),
-  chat: (question: string) =>
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.detail ?? `API ${res.status}`);
-      }
-      return (await res.json()) as ChatResponse;
-    }),
-  chatStream: async (question: string, h: ChatStreamHandlers): Promise<void> => {
-    const res = await fetch("/api/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
-    });
+  chat: async (question: string, history: ChatTurn[], conversationId: string) => {
+    const res = await postChat("/api/chat", question, history, conversationId);
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail ?? `API ${res.status}`);
+    }
+    return (await res.json()) as ChatResponse;
+  },
+  chatStream: async (
+    question: string,
+    history: ChatTurn[],
+    conversationId: string,
+    h: ChatStreamHandlers
+  ): Promise<void> => {
+    const res = await postChat("/api/chat/stream", question, history, conversationId);
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));
       throw new Error(detail.detail ?? `API ${res.status}`);

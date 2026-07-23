@@ -1,10 +1,14 @@
 """Lightweight input guard for the chat endpoint.
 
-First-line defense against prompt injection and off-topic abuse. This is a
-UX/cost filter, NOT a security boundary — the real boundary is the read-only,
-allowlisted tool layer (``app/tools/``): even a fully bypassed prompt can only
-trigger an allowed analytics query. The goal here is to cheaply reject the
-obvious junk so tokens aren't spent on it.
+First-line defense against prompt injection and DoS. This is a UX/cost filter,
+NOT a security boundary — the real boundary is the read-only, allowlisted tool
+layer (``app/tools/``): even a fully bypassed prompt can only trigger an allowed
+analytics query.
+
+Only genuine abuse is hard-rejected (empty input, oversized input, opaque blobs,
+prompt-injection patterns). Greetings and off-topic messages are NOT blocked —
+they flow to the model, which the system prompt instructs to respond briefly and
+redirect to logistics analytics. A friendly reply beats a 400 error toast.
 
 ``guard_input`` returns ``(allowed, reason)``; reason is empty when allowed.
 Every pattern is reviewable and tunable below.
@@ -15,7 +19,6 @@ from __future__ import annotations
 import re
 
 MAX_LEN = 500
-MIN_LEN = 3
 
 # Prompt-injection / jailbreak patterns (matched on whitespace-collapsed text).
 _INJECTION = [
@@ -32,16 +35,6 @@ _INJECTION = [
 ]
 _INJECTION_RE = re.compile("|".join(_INJECTION), re.IGNORECASE)
 
-# A legitimate question must touch the logistics-analytics domain. Tunable.
-_DOMAIN_RE = re.compile(
-    r"\b(?:order|orders|carrier|carriers|delay|delayed|delays?|deliv\w*|revenue|"
-    r"forecast|demand|region|regions?|route|routes?|sku|skus|warehouse|warehouses?|"
-    r"client|clients?|status|promo\w*|categor\w+|product|month|monthly|weekly|"
-    r"trend|performance|volume|shipment|shipments?|transit|exception|on[\s-]?time|"
-    r"quantity|price|value|pareto|percentile|share|market|inventory|stock)\b",
-    re.IGNORECASE,
-)
-
 # A long opaque blob (base64/hex) often smuggles a hidden payload.
 _BLOB_RE = re.compile(r"[A-Za-z0-9+/=]{120,}")
 
@@ -49,8 +42,8 @@ _BLOB_RE = re.compile(r"[A-Za-z0-9+/=]{120,}")
 def guard_input(question: str) -> tuple[bool, str]:
     """Validate a chat question. Returns ``(allowed, reason)``."""
     q = (question or "").strip()
-    if len(q) < MIN_LEN:
-        return False, "Question is too short."
+    if not q:
+        return False, "Question is empty."
     if len(q) > MAX_LEN:
         return False, f"Question exceeds the {MAX_LEN}-character limit."
     # Collapse whitespace so newlines can't break the patterns.
@@ -59,6 +52,4 @@ def guard_input(question: str) -> tuple[bool, str]:
         return False, "Question contains a suspiciously long opaque token."
     if _INJECTION_RE.search(norm):
         return False, "Question matches a known prompt-injection pattern."
-    if not _DOMAIN_RE.search(norm):
-        return False, "Question is outside the logistics-analytics scope."
     return True, ""

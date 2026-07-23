@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { clientApi } from "@/lib/api";
+import { clientApi, type ChatTurn } from "@/lib/api";
 import type { ChatExplanation, ChartType } from "@/lib/types";
 
 export interface ChatMessageData {
@@ -18,13 +18,46 @@ export interface ChatMessageData {
   status?: string | null;
 }
 
+const STORAGE_KEY = "logistics.chat.conversationId";
+
+function persistId(id: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, id);
+  } catch {
+    /* storage may be unavailable */
+  }
+}
+
+function loadOrCreateId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const existing = localStorage.getItem(STORAGE_KEY);
+    if (existing) return existing;
+  } catch {
+    /* ignore */
+  }
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  persistId(id);
+  return id;
+}
+
 let _seq = 0;
 const nextId = () => `m${++_seq}`;
 
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState("");
   const abortRef = useRef(false);
+
+  // Hydrate the conversation id from localStorage on mount (SSR-safe).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time browser-API hydration
+    setConversationId(loadOrCreateId());
+  }, []);
 
   const patch = useCallback((id: string, changes: Partial<ChatMessageData>) => {
     setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, ...changes } : msg)));
@@ -44,6 +77,11 @@ export function useChat() {
       if (!q || loading) return;
       abortRef.current = false;
 
+      // Prior completed text turns become the model's context.
+      const history: ChatTurn[] = messages
+        .filter((msg) => !msg.streaming && !msg.error && msg.content)
+        .map((msg) => ({ role: msg.role, content: msg.content }));
+
       const userMsg: ChatMessageData = { id: nextId(), role: "user", content: q };
       const assistantId = nextId();
       const placeholder: ChatMessageData = {
@@ -56,7 +94,7 @@ export function useChat() {
       setLoading(true);
 
       try {
-        await clientApi.chatStream(q, {
+        await clientApi.chatStream(q, history, conversationId, {
           onStatus: () => patch(assistantId, { status: "Thinking…" }),
           onTool: (label) => patch(assistantId, { status: label }),
           onToken: (delta) => appendDelta(assistantId, delta),
@@ -81,14 +119,20 @@ export function useChat() {
         setLoading(false);
       }
     },
-    [loading, patch, appendDelta]
+    [loading, patch, appendDelta, messages, conversationId]
   );
 
   const reset = useCallback(() => {
     abortRef.current = true;
     setMessages([]);
     setLoading(false);
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    persistId(id);
+    setConversationId(id);
   }, []);
 
-  return { messages, loading, send, reset };
+  return { messages, loading, send, reset, conversationId };
 }

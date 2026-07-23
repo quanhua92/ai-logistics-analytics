@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # "openrouter/free" auto-routes to any available free model.
     # Override with OPENROUTER_MODEL in .env to pin a specific model.
     openrouter_model: str = "openrouter/free"
+    # Per-conversation JSONL logs for debugging. One file per conversation UUID.
+    chat_log_dir: str = ".chat-logs"
 
 
 settings = Settings()

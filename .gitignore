@@ -126,3 +126,4 @@ docker-compose.local.yml
 pgdata/
 postgres-data/
 .dev-logs/
+.chat-logs/

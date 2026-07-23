@@ -12,14 +12,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_openrouter import ChatOpenRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.scenarios import registry
-from app.tools import forecast_tool, query_tool, scenario_tool
+from app.tools import forecast_tool, orders_tool, query_tool, scenario_tool
+from app.utils import chat_log
 
 _MAX_STEPS = 6
 
@@ -27,6 +28,9 @@ _SYSTEM_HEADER = """\
 You are the analytics assistant for a logistics company. You answer questions
 about orders, deliveries, carriers, regions, products, and revenue using a set
 of read-only analytics tools backed by a PostgreSQL database.
+
+The dataset covers shipping orders for all of 2025 (January through December).
+So "last month" / "most recent month" means 2025-12; "this year" is 2025.
 
 RULES
 1. ALWAYS call a tool before stating any number, ranking, or trend. Never
@@ -41,6 +45,10 @@ RULES
 5. If the question is ambiguous, ask ONE short clarifying question before
    running any tool.
 6. For forecasts, use `forecast_demand` (pure statistics — no guessing).
+7. If the user greets you (hi, hello, hey) or asks something outside logistics
+   analytics (jokes, general chat, other topics), do NOT call any tool. Reply in
+   ONE short, friendly sentence and gently redirect to what you can do (orders,
+   carriers, delays, revenue, forecasts). Never refuse flatly.
 
 You have these tools:
 - list_scenarios(): the full curated catalog (id + the question each answers).
@@ -53,6 +61,10 @@ You have these tools:
   {field, op, value} with op ∈ eq|ne|in|gt|gte|lt|lte.
 - list_forecast_categories(): product categories available for forecasting.
 - forecast_demand(category, horizon_months): forecast monthly demand.
+- list_orders(filters, limit): return raw order rows (newest first) when the user
+  asks to list/show/recent orders (NOT an aggregate). filters is a dict whose
+  keys are carrier|region|status|category|client|sku|warehouse|is_promo|month;
+  month is YYYY-MM (e.g. "2025-12"). limit defaults to 20, max 100.
 """
 
 
@@ -120,7 +132,22 @@ def _make_tools(session: AsyncSession) -> list:
         """Forecast monthly demand for a product category over 1-12 months (pure statistics)."""
         return await forecast_tool.forecast_demand(category, horizon_months, session)
 
-    return [list_scenarios, run_scenario, query_analytics, list_forecast_categories, forecast_demand]
+    @tool
+    async def list_orders(
+        filters: dict | None = None,
+        limit: int | None = None,
+    ) -> dict:
+        """Return raw order rows (newest first) for list/show/recent-order queries."""
+        return await orders_tool.list_orders({"filters": filters, "limit": limit}, session)
+
+    return [
+        list_scenarios,
+        run_scenario,
+        query_analytics,
+        list_orders,
+        list_forecast_categories,
+        forecast_demand,
+    ]
 
 
 def _capture_chart(tool_name: str, result: Any) -> dict | None:
@@ -138,6 +165,12 @@ def _capture_chart(tool_name: str, result: Any) -> dict | None:
     if tool_name == "query_analytics":
         return {
             "chart_type": result.get("chart_type"),
+            "data": result.get("data"),
+            "explanation": result.get("explanation"),
+        }
+    if tool_name == "list_orders":
+        return {
+            "chart_type": "table",
             "data": result.get("data"),
             "explanation": result.get("explanation"),
         }
@@ -181,12 +214,33 @@ def _tool_label(name: str, args: dict) -> str:
     return name
 
 
-async def ask_stream(question: str, session: AsyncSession):
+def _history_messages(history: list) -> list:
+    """Convert client-sent turns (user/assistant text) into LangChain messages."""
+    out: list = []
+    for turn in history or []:
+        role = getattr(turn, "role", None) or (turn.get("role") if isinstance(turn, dict) else None)
+        content = getattr(turn, "content", None) or (turn.get("content") if isinstance(turn, dict) else "")
+        if not content:
+            continue
+        if role == "user":
+            out.append(HumanMessage(content=content))
+        elif role == "assistant":
+            out.append(AIMessage(content=content))
+    return out
+
+
+async def ask_stream(
+    question: str,
+    session: AsyncSession,
+    history: list | None = None,
+    conversation_id: str = "",
+):
     """Async generator yielding SSE event dicts.
 
     Events: status, tool, token, done, error. The ``done`` event carries the
     same payload shape as :func:`ask` so streaming and non-streaming clients
-    render identically.
+    render identically. ``history`` is the prior user/assistant text turns.
+    Each completed turn is appended to the conversation's JSONL log.
     """
     if not settings.openrouter_api_key:
         yield {"type": "error", "detail": "OPENROUTER_API_KEY is not set — add it to server/.env"}
@@ -197,9 +251,26 @@ async def ask_stream(question: str, session: AsyncSession):
     tool_map = {t.name: t for t in tools}
     llm_with_tools = llm.bind_tools(tools)
 
-    messages: list = [SystemMessage(content=build_system_prompt()), HumanMessage(content=question)]
+    messages: list = [SystemMessage(content=build_system_prompt())]
+    messages.extend(_history_messages(history))
+    messages.append(HumanMessage(content=question))
     chart_payload: dict | None = None
     acc = None
+    tool_log: list[dict[str, Any]] = []
+
+    def _log_turn(answer: str = "", error: str | None = None) -> None:
+        chat_log.append_turn(
+            conversation_id,
+            {
+                "question": question,
+                "history_len": len(history or []),
+                "tool_calls": tool_log,
+                "answer": answer,
+                "chart_type": chart_payload["chart_type"] if chart_payload else None,
+                "scenario_id": chart_payload.get("scenario_id") if chart_payload else None,
+                "error": error,
+            },
+        )
 
     yield {"type": "status", "step": "thinking"}
     try:
@@ -218,10 +289,13 @@ async def ask_stream(question: str, session: AsyncSession):
             for tc in acc.tool_calls:
                 name, args, call_id = tc["name"], tc["args"], tc["id"]
                 yield {"type": "tool", "name": name, "label": _tool_label(name, args)}
+                status = "ok"
                 try:
                     result = await tool_map[name].ainvoke(args)
                 except Exception as exc:  # surface tool errors to the model so it can recover
                     result = {"error": f"{type(exc).__name__}: {exc}"}
+                    status = f"{type(exc).__name__}: {exc}"
+                tool_log.append({"name": name, "args": args, "status": status})
                 captured = _capture_chart(name, result)
                 if captured:
                     chart_payload = captured
@@ -229,10 +303,12 @@ async def ask_stream(question: str, session: AsyncSession):
                     ToolMessage(content=json.dumps(result, default=str), tool_call_id=call_id)
                 )
     except Exception as exc:
+        _log_turn(error=f"{type(exc).__name__}: {exc}")
         yield {"type": "error", "detail": f"{type(exc).__name__}: {exc}"}
         return
 
     answer = (acc.content if acc and acc.content else "").strip() or "(no answer)"
+    _log_turn(answer=answer)
     yield {
         "type": "done",
         "answer": answer,
@@ -244,10 +320,15 @@ async def ask_stream(question: str, session: AsyncSession):
     }
 
 
-async def ask(question: str, session: AsyncSession) -> dict[str, Any]:
+async def ask(
+    question: str,
+    session: AsyncSession,
+    history: list | None = None,
+    conversation_id: str = "",
+) -> dict[str, Any]:
     """Non-streaming answer: consume ask_stream and return the final payload."""
     payload: dict[str, Any] | None = None
-    async for event in ask_stream(question, session):
+    async for event in ask_stream(question, session, history=history, conversation_id=conversation_id):
         if event["type"] == "done":
             payload = {k: v for k, v in event.items() if k != "type"}
         elif event["type"] == "error":

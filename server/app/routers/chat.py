@@ -51,7 +51,9 @@ async def chat(
             detail="AI is not configured — set OPENROUTER_API_KEY in server/.env",
         )
     try:
-        result = await ai_orchestrator.ask(body.question, db)
+        result = await ai_orchestrator.ask(
+            body.question, db, history=body.history, conversation_id=body.conversation_id
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -84,7 +86,9 @@ async def chat_stream(
 
     async def event_gen():
         try:
-            async for ev in ai_orchestrator.ask_stream(body.question, db):
+            async for ev in ai_orchestrator.ask_stream(
+                body.question, db, history=body.history, conversation_id=body.conversation_id
+            ):
                 payload = {k: v for k, v in ev.items() if k != "type"}
                 yield _sse(ev["type"], payload)
         except Exception as exc:  # belt-and-suspenders: ask_stream already guards

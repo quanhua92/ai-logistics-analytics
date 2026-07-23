@@ -31,8 +31,15 @@ class KpiResponse(BaseModel):
     total_revenue: float
 
 
+class ChatTurn(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
 class ChatRequest(BaseModel):
     question: str
+    history: list[ChatTurn] = []
+    conversation_id: str = ""
 
 
 class ChatResponse(BaseModel):

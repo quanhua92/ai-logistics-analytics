@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Bot, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, Check, Copy, RotateCcw, Sparkles } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { useChat } from "@/hooks/use-chat";
@@ -16,7 +16,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPage() {
-  const { messages, loading, send, reset } = useChat();
+  const { messages, loading, send, reset, conversationId } = useChat();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -60,6 +60,7 @@ export default function ChatPage() {
           <p className="text-xs text-muted-foreground">
             Natural-language analytics — every answer is backed by live data.
           </p>
+          {conversationId && <ConversationBadge id={conversationId} />}
         </div>
         {!empty && (
           <button
@@ -134,5 +135,29 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function ConversationBadge({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={`Conversation ${id} — click to copy`}
+      className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {copied ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
+      <span className="break-all">{id}</span>
+    </button>
   );
 }
