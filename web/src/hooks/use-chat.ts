@@ -16,7 +16,7 @@ export interface ChatMessageData {
   error?: boolean;
   streaming?: boolean;
   status?: string | null;
-  tools?: { name: string; label: string }[];
+  tools?: { name: string; label: string; args?: unknown }[];
 }
 
 const STORAGE_KEY = "logistics.chat.conversationId";
@@ -82,11 +82,11 @@ export function useChat() {
     );
   }, []);
 
-  const appendTool = useCallback((id: string, name: string, label: string) => {
+  const appendTool = useCallback((id: string, name: string, label: string, args: unknown) => {
     setMessages((m) =>
       m.map((msg) =>
         msg.id === id
-          ? { ...msg, tools: [...(msg.tools ?? []), { name, label }], status: label }
+          ? { ...msg, tools: [...(msg.tools ?? []), { name, label, args }], status: label }
           : msg
       )
     );
@@ -117,7 +117,7 @@ export function useChat() {
       try {
         await clientApi.chatStream(q, history, conversationId, {
           onStatus: () => patch(assistantId, { status: "Thinking…" }),
-          onTool: (name, label) => appendTool(assistantId, name, label),
+          onTool: (name, label, args) => appendTool(assistantId, name, label, args),
           onToken: (delta) => appendDelta(assistantId, delta),
           onDone: (payload) =>
             patch(assistantId, {
@@ -175,7 +175,11 @@ export function useChat() {
             error: !!t.error,
             tools: (t.tool_calls ?? [])
               .filter((tc) => tc && tc.name)
-              .map((tc) => ({ name: String(tc.name), label: String(tc.label ?? tc.name) })),
+              .map((tc) => ({
+                name: String(tc.name),
+                label: String(tc.label ?? tc.name),
+                args: (tc as { args?: unknown }).args,
+              })),
             chartType: (t.chart_type as ChartType | null | undefined) ?? null,
             chartData: t.chart_data ?? null,
             explanation: (t.explanation as ChatExplanation | null | undefined) ?? null,

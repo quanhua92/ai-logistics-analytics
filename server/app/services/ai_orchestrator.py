@@ -316,20 +316,27 @@ async def ask_stream(
     yield {"type": "status", "step": "thinking"}
     try:
         for _ in range(_MAX_STEPS):
+            # Free models occasionally return an empty response (no content, no
+            # tool calls). Retry the turn a few times — safe because an empty
+            # turn streams no tokens, so there's nothing to de-duplicate.
             acc = None
-            async for chunk in llm_with_tools.astream(messages):
-                # Stream content deltas as tokens (final-answer text).
-                if chunk.content:
-                    yield {"type": "token", "delta": chunk.content}
-                acc = chunk if acc is None else acc + chunk
-            if acc is None:
-                break
+            for _attempt in range(3):
+                acc = None
+                async for chunk in llm_with_tools.astream(messages):
+                    # Stream content deltas as tokens (final-answer text).
+                    if chunk.content:
+                        yield {"type": "token", "delta": chunk.content}
+                    acc = chunk if acc is None else acc + chunk
+                if acc is not None and (acc.content or getattr(acc, "tool_calls", None)):
+                    break
+            if acc is None or (not acc.content and not getattr(acc, "tool_calls", None)):
+                break  # empty even after retries
             messages.append(acc)
             if not getattr(acc, "tool_calls", None):
                 break
             for tc in acc.tool_calls:
                 name, args, call_id = tc["name"], tc["args"], tc["id"]
-                yield {"type": "tool", "name": name, "label": _tool_label(name, args)}
+                yield {"type": "tool", "name": name, "label": _tool_label(name, args), "args": args}
                 status = "ok"
                 try:
                     result = await tool_map[name].ainvoke(args)
@@ -350,7 +357,13 @@ async def ask_stream(
         yield {"type": "error", "detail": f"{type(exc).__name__}: {exc}"}
         return
 
-    answer = (acc.content if acc and acc.content else "").strip() or "(no answer)"
+    if acc and acc.content:
+        answer = acc.content.strip()
+    else:
+        answer = (
+            "The model returned an empty response — this can happen on the free "
+            "tier. Please try again."
+        )
     _log_turn(answer=answer)
     yield {
         "type": "done",

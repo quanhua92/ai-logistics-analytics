@@ -2,7 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, Loader2, User, Wrench } from "lucide-react";
+import { Bot, ChevronRight, Loader2, User, Wrench } from "lucide-react";
 
 import { ChartRenderer } from "@/components/charts/chart-renderer";
 import { ExplanationPanel } from "@/components/chat/explanation-panel";
@@ -55,13 +55,21 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
           {hasTools && (
             <div className="flex flex-wrap gap-1.5">
               {message.tools!.map((t, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground"
-                >
-                  <Wrench className="size-3 shrink-0" />
-                  {t.label}
-                </span>
+                <details key={i} className="group">
+                  <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+                    <Wrench className="size-3 shrink-0" />
+                    {t.label}
+                    <ChevronRight className="size-3 shrink-0 text-muted-foreground/60 transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="mt-1 max-w-[80vw] overflow-x-auto rounded-md border bg-popover px-2.5 py-1.5 text-[10px] shadow-sm sm:max-w-md">
+                    <div className="mb-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground/70">
+                      {t.name}
+                    </div>
+                    <pre className="whitespace-pre-wrap break-all font-mono leading-snug text-muted-foreground">
+                      {JSON.stringify(t.args ?? {}, null, 2)}
+                    </pre>
+                  </div>
+                </details>
               ))}
             </div>
           )}

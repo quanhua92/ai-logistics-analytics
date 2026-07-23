@@ -38,7 +38,7 @@ export const serverApi = {
 
 export interface ChatStreamHandlers {
   onStatus?: (step: string) => void;
-  onTool?: (name: string, label: string) => void;
+  onTool?: (name: string, label: string, args: unknown) => void;
   onToken?: (delta: string) => void;
   onDone?: (payload: ChatResponse) => void;
   onError?: (detail: string) => void;
@@ -77,7 +77,11 @@ async function consumeChatStream(res: Response, h: ChatStreamHandlers): Promise<
           h.onStatus?.(String(parsed.step ?? ""));
           break;
         case "tool":
-          h.onTool?.(String(parsed.name ?? ""), String(parsed.label ?? parsed.name ?? ""));
+          h.onTool?.(
+            String(parsed.name ?? ""),
+            String(parsed.label ?? parsed.name ?? ""),
+            parsed.args ?? {}
+          );
           break;
         case "token":
           h.onToken?.(String(parsed.delta ?? ""));
