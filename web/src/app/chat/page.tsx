@@ -6,8 +6,7 @@ import { ArrowUp, Bot, Check, Copy, History, RotateCcw, Sparkles } from "lucide-
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { HistoryDialog } from "@/components/chat/history-dialog";
-import { useChat } from "@/hooks/use-chat";
-import { clientApi } from "@/lib/api";
+import { getStoredConversationId, useChat } from "@/hooks/use-chat";
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -34,23 +33,17 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // The URL is the source of truth for which conversation is shown.
-  // ?c=<id> loads/replays it. Bare /chat resumes the most recent conversation
-  // (so you continue where you left off) or starts fresh if none exists.
+  // ?c=<id> loads/replays it. Bare /chat resumes the last-used conversation from
+  // localStorage (no API call) or starts fresh. Browse/remote history is via the
+  // History dialog.
   useEffect(() => {
     const c = searchParams.get("c");
     if (c) {
       void loadConversation(c);
       return;
     }
-    void (async () => {
-      try {
-        const list = await clientApi.listConversations();
-        const last = list[0]?.conversation_id;
-        router.replace(`/chat?c=${last ?? newId()}`);
-      } catch {
-        router.replace(`/chat?c=${newId()}`);
-      }
-    })();
+    const last = getStoredConversationId();
+    router.replace(`/chat?c=${last ?? newId()}`);
   }, [searchParams, router, loadConversation]);
 
   useEffect(() => {
@@ -82,7 +75,7 @@ export default function ChatPage() {
   const empty = messages.length === 0;
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-4.5rem)] max-w-3xl flex-col">
       <header className="flex items-center justify-between px-1 pt-1">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -139,7 +132,9 @@ export default function ChatPage() {
             value={input}
             onChange={onInput}
             onKeyDown={onKeyDown}
+            onFocus={() => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 200)}
             rows={1}
+            enterKeyHint="send"
             placeholder="Ask about orders, carriers, delays, revenue, forecasts…"
             className="max-h-40 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground/70"
           />

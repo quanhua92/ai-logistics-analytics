@@ -21,6 +21,16 @@ export interface ChatMessageData {
 
 const STORAGE_KEY = "logistics.chat.conversationId";
 
+/** Read the last-used conversation id from localStorage (no API call). */
+export function getStoredConversationId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function persistId(id: string) {
   try {
     localStorage.setItem(STORAGE_KEY, id);
