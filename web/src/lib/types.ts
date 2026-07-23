@@ -80,3 +80,37 @@ export interface ChatResponse {
   scenario_id: string | null;
   title: string | null;
 }
+
+export interface HistoricalPoint {
+  month: string;
+  quantity: number;
+}
+
+export interface ForecastPoint {
+  month: string;
+  quantity: number;
+  linear?: number | null;
+  moving_average?: number | null;
+}
+
+export interface ForecastRecommendation {
+  peak_forecast_units: number;
+  safety_stock_units: number;
+  note: string;
+}
+
+export interface ForecastReadiness {
+  mean_monthly_quantity: number;
+  std_dev: number;
+  data_points: number;
+}
+
+export interface ForecastResponse {
+  category: string;
+  horizon_months: number;
+  historical: HistoricalPoint[];
+  forecast: ForecastPoint[];
+  recommendation: ForecastRecommendation;
+  methodology: string;
+  readiness: ForecastReadiness;
+}

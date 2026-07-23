@@ -4,7 +4,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.db import DbSession, create_db_lifespan
-from app.routers import chat, dashboard
+from app.routers import chat, dashboard, forecast
 
 app = FastAPI(
     title="AI Logistics Analytics API",
@@ -21,6 +21,7 @@ app.add_middleware(
 
 app.include_router(dashboard.router)
 app.include_router(chat.router)
+app.include_router(forecast.router)
 
 
 @app.get("/api/health")

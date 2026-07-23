@@ -1,4 +1,12 @@
-import type { ChartResponse, ChatResponse, ChartType, KpiResponse, KpiTrends, ScenarioMeta } from "./types";
+import type {
+  ChartResponse,
+  ChatResponse,
+  ChartType,
+  ForecastResponse,
+  KpiResponse,
+  KpiTrends,
+  ScenarioMeta,
+} from "./types";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 /** Server-side fetch (absolute URL) with Next.js cache + revalidate. */
@@ -23,6 +31,9 @@ export const serverApi = {
   kpiTrends: () => serverGet<KpiTrends>("/api/dashboard/kpi-trends"),
   scenarios: () => serverGet<ScenarioMeta[]>("/api/dashboard/scenarios"),
   chart: (id: string) => serverGet<ChartResponse>(`/api/dashboard/charts/${id}`),
+  forecastCategories: () => serverGet<string[]>("/api/forecast/categories"),
+  forecast: (category: string, horizon: number) =>
+    serverGet<ForecastResponse>(`/api/forecast?category=${encodeURIComponent(category)}&horizon=${horizon}`),
 };
 
 export interface ChatStreamHandlers {
@@ -148,4 +159,9 @@ export const clientApi = {
     }
     await consumeChatStream(res, h);
   },
+  forecastCategories: () => clientGet<string[]>("/api/forecast/categories"),
+  forecast: (category: string, horizon: number) =>
+    clientGet<ForecastResponse>(
+      `/api/forecast?category=${encodeURIComponent(category)}&horizon=${horizon}`
+    ),
 };

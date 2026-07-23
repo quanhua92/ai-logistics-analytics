@@ -49,3 +49,37 @@ class ChatResponse(BaseModel):
     explanation: dict[str, Any] | None = None
     scenario_id: str | None = None
     title: str | None = None
+
+
+class HistoricalPoint(BaseModel):
+    month: str
+    quantity: int
+
+
+class ForecastPoint(BaseModel):
+    month: str
+    quantity: float
+    linear: float | None = None
+    moving_average: float | None = None
+
+
+class ForecastRecommendation(BaseModel):
+    peak_forecast_units: int
+    safety_stock_units: int
+    note: str
+
+
+class ForecastReadiness(BaseModel):
+    mean_monthly_quantity: float
+    std_dev: float
+    data_points: int
+
+
+class ForecastResponse(BaseModel):
+    category: str
+    horizon_months: int
+    historical: list[HistoricalPoint]
+    forecast: list[ForecastPoint]
+    recommendation: ForecastRecommendation
+    methodology: str
+    readiness: ForecastReadiness
