@@ -1,3 +1,23 @@
 "use client";
 
-export { ChartRenderer as DynamicChart } from "./chart-renderer";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { ChartType } from "@/lib/types";
+
+const ChartRenderer = dynamic(
+  () => import("./chart-renderer").then((m) => m.ChartRenderer),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[260px] w-full rounded-md" />,
+  }
+);
+
+interface Props {
+  chartType: ChartType;
+  data: Record<string, unknown>[];
+  height?: number;
+}
+
+export function DynamicChart({ chartType, data, height }: Props) {
+  return <ChartRenderer chartType={chartType} data={data} height={height} />;
+}

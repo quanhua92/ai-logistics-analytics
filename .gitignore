@@ -125,3 +125,4 @@ docker-compose.local.yml
 *.db
 pgdata/
 postgres-data/
+.dev-logs/

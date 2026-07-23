@@ -12,11 +12,11 @@ import {
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { cloneElement, createContext, useContext, useLayoutEffect, useRef, useState, type ReactElement } from "react";
 
 import type { ChartType } from "@/lib/types";
 
@@ -25,9 +25,12 @@ const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#f43f5e", "#8b5cf6"];
 const AXIS = { stroke: "#94a3b8", fontSize: 11, tickLine: false };
 const GRID = "#eef2f7";
 
+const ChartHeightContext = createContext(260);
+
 interface Props {
   chartType: ChartType;
   data: Record<string, unknown>[];
+  height?: number;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -80,11 +83,19 @@ const LEGEND = (
   />
 );
 
-export function ChartRenderer({ chartType, data }: Props) {
+export function ChartRenderer({ chartType, data, height = 260 }: Props) {
   if (!data.length) {
     return <div className="py-10 text-center text-sm text-muted-foreground">No data</div>;
   }
 
+  return (
+    <ChartHeightContext.Provider value={height}>
+      {render(chartType, data)}
+    </ChartHeightContext.Provider>
+  );
+}
+
+function render(chartType: ChartType, data: Record<string, unknown>[]) {
   switch (chartType) {
     case "bar":
     case "histogram":
@@ -341,12 +352,26 @@ function Heatmap({ data }: { data: Record<string, unknown>[] }) {
   );
 }
 
-function Chart({ children }: { children: React.ReactNode }) {
+function Chart({ children }: { children: ReactElement }) {
+  const height = useContext(ChartHeightContext);
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div className="h-[260px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        {children as React.ReactElement}
-      </ResponsiveContainer>
+    <div ref={ref} style={{ height }} className="w-full">
+      {size && size.w > 0 && size.h > 0
+        ? cloneElement(children, { width: size.w, height: size.h })
+        : null}
     </div>
   );
 }

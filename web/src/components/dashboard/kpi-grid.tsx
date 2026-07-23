@@ -1,3 +1,5 @@
+"use client";
+
 import { AlertCircle, AlertTriangle, Boxes, DollarSign, Gauge, Navigation, PackageCheck, Timer } from "lucide-react";
 
 import type { KpiResponse, KpiTrends } from "@/lib/types";
@@ -55,7 +57,7 @@ export function KpiGrid({ kpis, trends }: { kpis: KpiResponse; trends?: KpiTrend
           <KpiCard
             key={it.label}
             {...it}
-            series={trend?.series.map((p) => p.value)}
+            series={trend?.series}
             delta={trend?.delta_pct}
           />
         );
