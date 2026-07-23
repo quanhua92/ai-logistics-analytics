@@ -7,7 +7,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Line,
   LineChart,
   Pie,
@@ -72,16 +71,25 @@ function ChartTooltip({ active, payload, label }: any) {
 const TOOLTIP = <ChartTooltip />;
 const CURSOR = { fill: "rgba(16,185,129,0.06)" };
 
-const LEGEND = (
-  <Legend
-    verticalAlign="bottom"
-    height={28}
-    iconType="circle"
-    iconSize={8}
-    wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-    formatter={(v: string) => <span className="text-muted-foreground">{prettify(v)}</span>}
-  />
-);
+/** Build legend items (label + color) from a chart's value/series keys. */
+function seriesItems(valueKeys: string[]) {
+  return valueKeys.map((k, i) => ({ label: prettify(k), color: COLORS[i % COLORS.length] }));
+}
+
+/** Wrapping legend — recharts' <Legend> doesn't wrap and overflows narrow cards. */
+function LegendWrap({ items }: { items: { label: string; color: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-1 text-[11px] text-muted-foreground">
+      {items.map((it, i) => (
+        <span key={i} className="inline-flex items-center gap-1.5">
+          <span className="size-2 rounded-full" style={{ background: it.color }} />
+          {it.label}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function ChartRenderer({ chartType, data, height = 260 }: Props) {
   if (!data.length) {
@@ -131,110 +139,126 @@ function columns(data: Record<string, unknown>[]) {
 function Bars({ data, stacked }: { data: Record<string, unknown>[]; stacked?: boolean }) {
   const { labelKey, valueKeys } = columns(data);
   return (
-    <Chart>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-        <XAxis dataKey={labelKey} {...AXIS} />
-        <YAxis {...AXIS} />
-        <Tooltip content={TOOLTIP} cursor={CURSOR} />
-        {valueKeys.length > 1 ? LEGEND : null}
-        {valueKeys.map((k, i) => (
-          <Bar
-            key={k}
-            dataKey={k}
-            stackId={stacked ? "a" : undefined}
-            fill={COLORS[i % COLORS.length]}
-            radius={stacked ? undefined : [4, 4, 0, 0]}
-            maxBarSize={48}
-          />
-        ))}
-      </BarChart>
-    </Chart>
+    <div>
+      <Chart>
+        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+          <XAxis dataKey={labelKey} {...AXIS} />
+          <YAxis {...AXIS} />
+          <Tooltip content={TOOLTIP} cursor={CURSOR} />
+          {valueKeys.map((k, i) => (
+            <Bar
+              key={k}
+              dataKey={k}
+              stackId={stacked ? "a" : undefined}
+              fill={COLORS[i % COLORS.length]}
+              radius={stacked ? undefined : [4, 4, 0, 0]}
+              maxBarSize={48}
+            />
+          ))}
+        </BarChart>
+      </Chart>
+      {valueKeys.length > 1 && <LegendWrap items={seriesItems(valueKeys)} />}
+    </div>
   );
 }
 
 function Lines({ data }: { data: Record<string, unknown>[] }) {
   const { labelKey, valueKeys } = columns(data);
   return (
-    <Chart>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-        <XAxis dataKey={labelKey} {...AXIS} />
-        <YAxis {...AXIS} />
-        <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
-        {valueKeys.length > 1 ? LEGEND : null}
-        {valueKeys.map((k, i) => (
-          <Line
-            key={k}
-            type="monotone"
-            dataKey={k}
-            stroke={COLORS[i % COLORS.length]}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4 }}
-          />
-        ))}
-      </LineChart>
-    </Chart>
+    <div>
+      <Chart>
+        <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+          <XAxis dataKey={labelKey} {...AXIS} />
+          <YAxis {...AXIS} />
+          <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
+          {valueKeys.map((k, i) => (
+            <Line
+              key={k}
+              type="monotone"
+              dataKey={k}
+              stroke={COLORS[i % COLORS.length]}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          ))}
+        </LineChart>
+      </Chart>
+      {valueKeys.length > 1 && <LegendWrap items={seriesItems(valueKeys)} />}
+    </div>
   );
 }
 
 function Areas({ data }: { data: Record<string, unknown>[] }) {
   const { labelKey, valueKeys } = columns(data);
   return (
-    <Chart>
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <defs>
+    <div>
+      <Chart>
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <defs>
+            {valueKeys.map((k, i) => (
+              <linearGradient key={k} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.02} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+          <XAxis dataKey={labelKey} {...AXIS} />
+          <YAxis {...AXIS} />
+          <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
           {valueKeys.map((k, i) => (
-            <linearGradient key={k} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.02} />
-            </linearGradient>
+            <Area
+              key={k}
+              type="monotone"
+              dataKey={k}
+              stroke={COLORS[i % COLORS.length]}
+              strokeWidth={2}
+              fill={`url(#grad-${i})`}
+            />
           ))}
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-        <XAxis dataKey={labelKey} {...AXIS} />
-        <YAxis {...AXIS} />
-        <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
-        {valueKeys.length > 1 ? LEGEND : null}
-        {valueKeys.map((k, i) => (
-          <Area
-            key={k}
-            type="monotone"
-            dataKey={k}
-            stroke={COLORS[i % COLORS.length]}
-            strokeWidth={2}
-            fill={`url(#grad-${i})`}
-          />
-        ))}
-      </AreaChart>
-    </Chart>
+        </AreaChart>
+      </Chart>
+      {valueKeys.length > 1 && <LegendWrap items={seriesItems(valueKeys)} />}
+    </div>
   );
 }
 
 function PieChartView({ data, donut }: { data: Record<string, unknown>[]; donut?: boolean }) {
   const { labelKey, valueKeys } = columns(data);
+  const valueKey = valueKeys[0];
   return (
-    <Chart>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey={valueKeys[0]}
-          nameKey={labelKey}
-          innerRadius={donut ? 50 : 0}
-          outerRadius={85}
-          paddingAngle={donut ? 2 : 0}
-        >
-          {data.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip content={TOOLTIP} />
-        {LEGEND}
-        <XAxis hide />
-        <YAxis hide />
-      </PieChart>
-    </Chart>
+    <div>
+      <Chart>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey={valueKey}
+            nameKey={labelKey}
+            innerRadius={donut ? 48 : 0}
+            outerRadius={72}
+            paddingAngle={donut ? 2 : 0}
+            cx="50%"
+            cy="50%"
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={TOOLTIP} />
+          <XAxis hide />
+          <YAxis hide />
+        </PieChart>
+      </Chart>
+      <LegendWrap
+        items={data.map((row, i) => ({
+          label: prettify(String(row[labelKey])),
+          color: COLORS[i % COLORS.length],
+        }))}
+      />
+    </div>
   );
 }
 
@@ -368,17 +392,24 @@ function Forecast({ data }: { data: Record<string, unknown>[] }) {
   }
   const pivoted = Array.from(byMonth, ([month, v]) => ({ month, ...v }));
   return (
-    <Chart>
-      <LineChart data={pivoted} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-        <XAxis dataKey="month" {...AXIS} />
-        <YAxis {...AXIS} />
-        <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
-        <Line type="monotone" dataKey="historical" name="Historical" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} connectNulls />
-        <Line type="monotone" dataKey="forecast" name="Forecast" stroke="#10b981" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} connectNulls />
-        {LEGEND}
-      </LineChart>
-    </Chart>
+    <div>
+      <Chart>
+        <LineChart data={pivoted} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+          <XAxis dataKey="month" {...AXIS} />
+          <YAxis {...AXIS} />
+          <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
+          <Line type="monotone" dataKey="historical" name="Historical" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+          <Line type="monotone" dataKey="forecast" name="Forecast" stroke="#10b981" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} connectNulls />
+        </LineChart>
+      </Chart>
+      <LegendWrap
+        items={[
+          { label: "Historical", color: "#10b981" },
+          { label: "Forecast", color: "rgba(16,185,129,0.5)" },
+        ]}
+      />
+    </div>
   );
 }
 

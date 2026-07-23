@@ -72,7 +72,20 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
             </p>
           ) : hasContent ? (
             <div className="prose-chat rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm leading-relaxed shadow-card">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // Wrap tables so wide ones scroll horizontally instead of
+                  // overflowing the chat card.
+                  table: (props) => (
+                    <div className="overflow-x-auto">
+                      <table {...props} />
+                    </div>
+                  ),
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
           ) : null}
 

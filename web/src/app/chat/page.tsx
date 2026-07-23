@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Bot, Check, Copy, History, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, History, RotateCcw, Sparkles } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { HistoryDialog } from "@/components/chat/history-dialog";
@@ -76,16 +76,15 @@ export default function ChatPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-4.5rem)] max-w-3xl flex-col">
-      <header className="flex items-center justify-between px-1 pt-1">
+      <header className="flex items-center justify-between px-1 py-2">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Sparkles className="size-4 text-primary" />
             Ask the data
           </h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="hidden text-xs text-muted-foreground sm:block">
             Natural-language analytics — every answer is backed by live data.
           </p>
-          {conversationId && <ConversationBadge id={conversationId} />}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -125,7 +124,7 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t bg-background/80 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="border-t bg-background/80 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-end gap-2 rounded-2xl border bg-card px-3 py-2 shadow-card focus-within:ring-2 focus-within:ring-ring/30">
           <textarea
             ref={textareaRef}
@@ -179,29 +178,5 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function ConversationBadge({ id }: { id: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable */
-    }
-  };
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      title={`Conversation ${id} — click to copy`}
-      className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      {copied ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
-      <span className="break-all">{id}</span>
-    </button>
   );
 }

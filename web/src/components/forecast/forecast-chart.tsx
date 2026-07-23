@@ -2,7 +2,6 @@
 
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   Tooltip,
@@ -85,61 +84,70 @@ function Sizer({ height, children }: { height: number; children: ReactElement<an
 
 export function ForecastChart({ data, height = 300 }: { data: ForecastResponse; height?: number }) {
   const rows = pivot(data);
+  const legendItems = [
+    { label: "Historical", color: "#10b981" },
+    { label: "Exp. smoothing (primary)", color: "rgba(16,185,129,0.55)" },
+    { label: "Linear regression", color: "#3b82f6" },
+    { label: "3-month moving avg", color: "#f59e0b" },
+  ];
   return (
-    <Sizer height={height}>
-      <LineChart data={rows} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-        <XAxis dataKey="month" {...AXIS} />
-        <YAxis {...AXIS} />
-        <Tooltip content={<ChartTooltip />} />
-        <Legend
-          verticalAlign="bottom"
-          height={28}
-          iconType="line"
-          iconSize={14}
-          wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-        />
-        <Line
-          type="monotone"
-          dataKey="historical"
-          name="Historical"
-          stroke="#10b981"
-          strokeWidth={2.5}
-          dot={{ r: 2 }}
-          connectNulls
-        />
-        <Line
-          type="monotone"
-          dataKey="exp"
-          name="Exp. smoothing (primary)"
-          stroke="#10b981"
-          strokeOpacity={0.55}
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          dot={{ r: 2 }}
-          connectNulls
-        />
-        <Line
-          type="monotone"
-          dataKey="linear"
-          name="Linear regression"
-          stroke="#3b82f6"
-          strokeWidth={1.5}
-          strokeDasharray="4 3"
-          dot={false}
-          connectNulls
-        />
-        <Line
-          type="monotone"
-          dataKey="moving_average"
-          name="3-month moving avg"
-          stroke="#f59e0b"
-          strokeWidth={1.5}
-          strokeDasharray="4 3"
-          dot={false}
-          connectNulls
-        />
-      </LineChart>
-    </Sizer>
+    <div>
+      <Sizer height={height}>
+        <LineChart data={rows} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+          <XAxis dataKey="month" {...AXIS} />
+          <YAxis {...AXIS} />
+          <Tooltip content={<ChartTooltip />} />
+          <Line
+            type="monotone"
+            dataKey="historical"
+            name="Historical"
+            stroke="#10b981"
+            strokeWidth={2.5}
+            dot={{ r: 2 }}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="exp"
+            name="Exp. smoothing (primary)"
+            stroke="#10b981"
+            strokeOpacity={0.55}
+            strokeWidth={2}
+            strokeDasharray="6 4"
+            dot={{ r: 2 }}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="linear"
+            name="Linear regression"
+            stroke="#3b82f6"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            dot={false}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="moving_average"
+            name="3-month moving avg"
+            stroke="#f59e0b"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            dot={false}
+            connectNulls
+          />
+        </LineChart>
+      </Sizer>
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-1 text-[11px] text-muted-foreground">
+        {legendItems.map((it, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-3 rounded-full" style={{ background: it.color }} />
+            {it.label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

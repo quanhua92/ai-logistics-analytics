@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Compass,
   LayoutDashboard,
@@ -27,6 +27,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { ConversationBadge } from "@/components/chat/conversation-badge";
 
 const ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -106,13 +107,16 @@ function AppSidebar() {
 
 function TopBar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const current =
     [...ITEMS].reverse().find((i) => isActive(pathname, i.href))?.label ?? "";
+  const convoId = pathname.startsWith("/chat") ? searchParams.get("c") : null;
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-1 h-4" />
       <span className="text-sm font-medium">{current}</span>
+      {convoId && <ConversationBadge id={convoId} />}
     </header>
   );
 }
