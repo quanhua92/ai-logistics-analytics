@@ -84,6 +84,9 @@ export interface ChatResponse {
 export interface HistoricalPoint {
   month: string;
   quantity: number;
+  linear?: number | null;
+  moving_average?: number | null;
+  exp?: number | null;
 }
 
 export interface ForecastPoint {
@@ -91,6 +94,7 @@ export interface ForecastPoint {
   quantity: number;
   linear?: number | null;
   moving_average?: number | null;
+  exp?: number | null;
 }
 
 export interface ForecastRecommendation {

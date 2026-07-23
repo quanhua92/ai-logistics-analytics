@@ -54,6 +54,9 @@ class ChatResponse(BaseModel):
 class HistoricalPoint(BaseModel):
     month: str
     quantity: int
+    linear: float | None = None
+    moving_average: float | None = None
+    exp: float | None = None
 
 
 class ForecastPoint(BaseModel):
@@ -61,6 +64,7 @@ class ForecastPoint(BaseModel):
     quantity: float
     linear: float | None = None
     moving_average: float | None = None
+    exp: float | None = None
 
 
 class ForecastRecommendation(BaseModel):

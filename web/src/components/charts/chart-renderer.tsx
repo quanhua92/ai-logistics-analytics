@@ -379,19 +379,25 @@ function Heatmap({ data }: { data: Record<string, unknown>[] }) {
 }
 
 function Forecast({ data }: { data: Record<string, unknown>[] }) {
-  // Flat {month, quantity, type, linear?, moving_average?} → pivoted per month
-  // with historical + the 3 forecast methods as separate series.
-  type Row = { historical: number | null; exp: number | null; linear: number | null; ma: number | null };
+  // Each row is historical (actual + per-method FITTED values) or forecast
+  // (per-method future values). Pivot into per-month rows with an `actual`
+  // column and one continuous column per method, so each method renders as a
+  // single line spanning history (fitted) + future (forecast).
+  type Row = { actual: number | null; exp: number | null; linear: number | null; ma: number | null };
   const byMonth = new Map<string, Row>();
+  const num = (v: unknown) =>
+    typeof v === "number" ? v : v == null || v === "" ? null : Number(v);
   for (const row of data) {
     const month = String(row.month);
-    const num = (v: unknown) => (typeof v === "number" ? v : v == null ? null : Number(v));
-    const type = String(row.type);
-    const entry = byMonth.get(month) ?? { historical: null, exp: null, linear: null, ma: null };
-    if (type === "historical") {
-      entry.historical = num(row.quantity);
+    const isHist = String(row.type) === "historical";
+    const entry = byMonth.get(month) ?? { actual: null, exp: null, linear: null, ma: null };
+    if (isHist) {
+      entry.actual = num(row.quantity);
+      entry.exp = num((row as Record<string, unknown>).exp);
+      entry.linear = num((row as Record<string, unknown>).linear);
+      entry.ma = num((row as Record<string, unknown>).moving_average);
     } else {
-      entry.exp = num(row.quantity);
+      entry.exp = num((row as Record<string, unknown>).exp ?? row.quantity);
       entry.linear = num((row as Record<string, unknown>).linear);
       entry.ma = num((row as Record<string, unknown>).moving_average);
     }
@@ -399,7 +405,7 @@ function Forecast({ data }: { data: Record<string, unknown>[] }) {
   }
   const pivoted = Array.from(byMonth, ([month, v]) => ({
     month,
-    historical: v.historical,
+    historical: v.actual,
     exp: v.exp,
     linear: v.linear,
     "moving avg": v.ma,
@@ -412,15 +418,15 @@ function Forecast({ data }: { data: Record<string, unknown>[] }) {
           <XAxis dataKey="month" {...AXIS} />
           <YAxis {...AXIS} />
           <Tooltip content={TOOLTIP} cursor={{ stroke: "#10b981", strokeOpacity: 0.2 }} />
-          <Line type="monotone" dataKey="historical" name="Historical" stroke="#10b981" strokeWidth={2.5} dot={{ r: 2 }} connectNulls />
-          <Line type="monotone" dataKey="exp" name="Exp. smoothing" stroke="#10b981" strokeOpacity={0.55} strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2 }} connectNulls />
+          <Line type="monotone" dataKey="historical" name="Actual" stroke="#10b981" strokeWidth={2.5} dot={{ r: 2 }} connectNulls />
+          <Line type="monotone" dataKey="exp" name="Exp. smoothing" stroke="#10b981" strokeOpacity={0.55} strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls />
           <Line type="monotone" dataKey="linear" name="Linear regression" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls />
           <Line type="monotone" dataKey="moving avg" name="Moving avg" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls />
         </LineChart>
       </Chart>
       <LegendWrap
         items={[
-          { label: "Historical", color: "#10b981" },
+          { label: "Actual", color: "#10b981" },
           { label: "Exp. smoothing", color: "rgba(16,185,129,0.55)" },
           { label: "Linear regression", color: "#3b82f6" },
           { label: "Moving avg", color: "#f59e0b" },

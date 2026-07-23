@@ -15,29 +15,26 @@ import type { ForecastResponse } from "@/lib/types";
 const AXIS = { stroke: "#94a3b8", fontSize: 11, tickLine: false };
 const GRID = "#eef2f7";
 
-/** Merge historical + forecast into per-month rows with one column per series. */
+/** Merge historical + forecast into per-month rows with one column per series.
+ * Historical points carry each method's FITTED value, so the method lines span
+ * history (fitted) + future (forecast) as continuous lines. */
 function pivot(data: ForecastResponse) {
   const byMonth = new Map<string, Record<string, number | null>>();
   for (const h of data.historical) {
     byMonth.set(h.month, {
-      historical: h.quantity,
-      exp: null,
-      linear: null,
-      moving_average: null,
+      actual: h.quantity,
+      exp: h.exp ?? null,
+      linear: h.linear ?? null,
+      moving_average: h.moving_average ?? null,
     });
   }
   for (const f of data.forecast) {
-    const row =
-      byMonth.get(f.month) ?? {
-        historical: null,
-        exp: null,
-        linear: null,
-        moving_average: null,
-      };
-    row.exp = f.quantity;
-    row.linear = f.linear ?? null;
-    row.moving_average = f.moving_average ?? null;
-    byMonth.set(f.month, row);
+    byMonth.set(f.month, {
+      actual: null,
+      exp: f.exp ?? f.quantity ?? null,
+      linear: f.linear ?? null,
+      moving_average: f.moving_average ?? null,
+    });
   }
   return Array.from(byMonth, ([month, v]) => ({ month, ...v }));
 }
@@ -85,7 +82,7 @@ function Sizer({ height, children }: { height: number; children: ReactElement<an
 export function ForecastChart({ data, height = 300 }: { data: ForecastResponse; height?: number }) {
   const rows = pivot(data);
   const legendItems = [
-    { label: "Historical", color: "#10b981" },
+    { label: "Actual", color: "#10b981" },
     { label: "Exp. smoothing (primary)", color: "rgba(16,185,129,0.55)" },
     { label: "Linear regression", color: "#3b82f6" },
     { label: "3-month moving avg", color: "#f59e0b" },
@@ -100,8 +97,8 @@ export function ForecastChart({ data, height = 300 }: { data: ForecastResponse; 
           <Tooltip content={<ChartTooltip />} />
           <Line
             type="monotone"
-            dataKey="historical"
-            name="Historical"
+            dataKey="actual"
+            name="Actual"
             stroke="#10b981"
             strokeWidth={2.5}
             dot={{ r: 2 }}

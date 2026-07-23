@@ -24,30 +24,45 @@ _START_YEAR = 2025
 _MONTHS = [f"{_START_YEAR}-{m:02d}" for m in range(1, 13)]
 
 
-def _fc_linear(y: list[float], horizon: int) -> list[float]:
+def _linear_params(y: list[float]) -> tuple[float, float]:
+    """Least-squares (slope, intercept) over y."""
     n = len(y)
     x = list(range(n))
     xbar = sum(x) / n
     ybar = sum(y) / n
     denom = sum((xi - xbar) ** 2 for xi in x) or 1
     slope = sum((xi - xbar) * (yi - ybar) for xi, yi in zip(x, y)) / denom
-    intercept = ybar - slope * xbar
-    return [intercept + slope * (n + i) for i in range(horizon)]
+    return slope, ybar - slope * xbar
 
 
-def _fc_ma(y: list[float], horizon: int, window: int = 3) -> list[float]:
-    tail = y[-window:] if len(y) >= window else y
-    ma = sum(tail) / len(tail) if tail else 0.0
-    return [ma] * horizon
+def _linear_fit_forecast(y: list[float], horizon: int) -> tuple[list[float], list[float]]:
+    """Linear regression: fitted line over history + projection into the future."""
+    slope, intercept = _linear_params(y)
+    n = len(y)
+    fitted = [intercept + slope * i for i in range(n)]
+    future = [intercept + slope * (n + i) for i in range(horizon)]
+    return fitted, future
 
 
-def _fc_es(y: list[float], horizon: int, alpha: float = 0.3) -> list[float]:
-    if not y:
-        return [0.0] * horizon
-    level = y[0]
-    for h in y[1:]:
+def _ma_fit_forecast(y: list[float], horizon: int, window: int = 3) -> tuple[list[float], list[float]]:
+    """Trailing moving average over history, held constant into the future."""
+    fitted: list[float] = []
+    for i in range(len(y)):
+        seg = y[max(0, i - window + 1): i + 1]
+        fitted.append(sum(seg) / len(seg))
+    last = fitted[-1] if fitted else 0.0
+    return fitted, [last] * horizon
+
+
+def _es_fit_forecast(y: list[float], horizon: int, alpha: float = 0.3) -> tuple[list[float], list[float]]:
+    """Exponential smoothing: running level over history, held constant into the future."""
+    fitted: list[float] = []
+    level = y[0] if y else 0.0
+    for h in y:
         level = alpha * h + (1 - alpha) * level
-    return [level] * horizon
+        fitted.append(level)
+    future = [level] * horizon if y else [0.0] * horizon
+    return fitted, future
 
 
 async def _category_series(category: str, session: AsyncSession) -> list[float]:
@@ -88,14 +103,26 @@ async def forecast(
     mean = sum(y) / n if n else 0.0
     std = math.sqrt(sum((v - mean) ** 2 for v in y) / n) if n else 0.0
 
-    lin = _fc_linear(y, horizon)
-    ma = _fc_ma(y, horizon)
-    es = _fc_es(y, horizon)
+    lin_fit, lin_fc = _linear_fit_forecast(y, horizon)
+    ma_fit, ma_fc = _ma_fit_forecast(y, horizon)
+    es_fit, es_fc = _es_fit_forecast(y, horizon)
 
     # Primary forecast: exponential smoothing (reacts to recent change) floored at 0.
-    primary = [max(0.0, round(v, 1)) for v in es]
+    primary = [max(0.0, round(v, 1)) for v in es_fc]
 
-    historical = [{"month": m, "quantity": int(y[i])} for i, m in enumerate(_MONTHS)]
+    # Historical points carry the actual quantity AND each method's FITTED value
+    # over history, so the chart can draw continuous fitted+forecast lines
+    # instead of disconnected future dots.
+    historical = [
+        {
+            "month": m,
+            "quantity": int(y[i]),
+            "linear": round(lin_fit[i], 1),
+            "moving_average": round(ma_fit[i], 1),
+            "exp": round(es_fit[i], 1),
+        }
+        for i, m in enumerate(_MONTHS)
+    ]
     last_month_idx = len(_MONTHS) - 1
     forecast_points = []
     for i in range(horizon):
@@ -106,8 +133,9 @@ async def forecast(
             {
                 "month": f"{year}-{month:02d}",
                 "quantity": primary[i],
-                "linear": round(max(0.0, lin[i]), 1),
-                "moving_average": round(ma[i], 1),
+                "linear": round(max(0.0, lin_fc[i]), 1),
+                "moving_average": round(ma_fc[i], 1),
+                "exp": primary[i],
             }
         )
 
