@@ -102,6 +102,7 @@ def _make_llm() -> ChatOpenRouter:
         model=settings.openrouter_model,
         api_key=settings.openrouter_api_key,
         temperature=0,
+        reasoning={"effort": "low"},
     )
 
 
@@ -331,6 +332,11 @@ async def ask_stream(
                     # Stream content deltas as tokens (final-answer text).
                     if chunk.content:
                         yield {"type": "token", "delta": chunk.content}
+                    # Stream reasoning/"thinking" deltas separately (not logged).
+                    ak = chunk.additional_kwargs or {}
+                    rdelta = ak.get("reasoning") or ak.get("reasoning_content")
+                    if rdelta:
+                        yield {"type": "thinking", "delta": rdelta}
                     acc = chunk if acc is None else acc + chunk
                 if acc is not None and (acc.content or getattr(acc, "tool_calls", None)):
                     break

@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, ChevronRight, Loader2, User, Wrench } from "lucide-react";
+import { Bot, Brain, ChevronRight, Loader2, User, Wrench } from "lucide-react";
 
 import { ChartRenderer } from "@/components/charts/chart-renderer";
 import { ExplanationPanel } from "@/components/chat/explanation-panel";
@@ -74,6 +75,10 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
             </div>
           )}
 
+          {message.thinking && (
+            <Thinking text={message.thinking} streaming={!!message.streaming} />
+          )}
+
           {message.error ? (
             <p className="rounded-2xl rounded-tl-sm border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive">
               {message.content}
@@ -119,5 +124,28 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function Thinking({ text, streaming }: { text: string; streaming: boolean }) {
+  // Open by default while streaming so the reasoning streams live; the user can
+  // collapse/expand freely afterwards.
+  const [open, setOpen] = useState(true);
+  return (
+    <details
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      className="group"
+    >
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <Brain className={`size-3 shrink-0 ${streaming ? "text-primary" : ""}`} />
+        Thinking
+        {streaming && <Loader2 className="size-3 shrink-0 animate-spin" />}
+        <ChevronRight className="size-3 shrink-0 text-muted-foreground/60 transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="mt-1 max-w-[80vw] overflow-x-auto rounded-md border bg-popover px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground shadow-sm sm:max-w-md">
+        <p className="whitespace-pre-wrap break-words">{text}</p>
+      </div>
+    </details>
   );
 }

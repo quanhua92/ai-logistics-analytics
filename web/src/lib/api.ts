@@ -40,6 +40,7 @@ export interface ChatStreamHandlers {
   onStatus?: (step: string) => void;
   onTool?: (name: string, label: string, args: unknown) => void;
   onToken?: (delta: string) => void;
+  onThinking?: (delta: string) => void;
   onDone?: (payload: ChatResponse) => void;
   onError?: (detail: string) => void;
 }
@@ -85,6 +86,9 @@ async function consumeChatStream(res: Response, h: ChatStreamHandlers): Promise<
           break;
         case "token":
           h.onToken?.(String(parsed.delta ?? ""));
+          break;
+        case "thinking":
+          h.onThinking?.(String(parsed.delta ?? ""));
           break;
         case "done":
           h.onDone?.(parsed as unknown as ChatResponse);

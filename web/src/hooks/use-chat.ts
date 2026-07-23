@@ -17,6 +17,7 @@ export interface ChatMessageData {
   streaming?: boolean;
   status?: string | null;
   tools?: { name: string; label: string; args?: unknown }[];
+  thinking?: string;
 }
 
 const STORAGE_KEY = "logistics.chat.conversationId";
@@ -97,6 +98,14 @@ export function useChat() {
     );
   }, []);
 
+  const appendThinking = useCallback((id: string, delta: string) => {
+    setMessages((m) =>
+      m.map((msg) =>
+        msg.id === id ? { ...msg, thinking: (msg.thinking ?? "") + delta } : msg
+      )
+    );
+  }, []);
+
   const send = useCallback(
     async (question: string) => {
       const q = question.trim();
@@ -129,6 +138,7 @@ export function useChat() {
             onStatus: () => patch(assistantId, { status: "Thinking…" }),
             onTool: (name, label, args) => appendTool(assistantId, name, label, args),
             onToken: (delta) => appendDelta(assistantId, delta),
+            onThinking: (delta) => appendThinking(assistantId, delta),
             onDone: (payload) =>
               patch(assistantId, {
                 content: payload.answer,
@@ -161,7 +171,7 @@ export function useChat() {
         setLoading(false);
       }
     },
-    [loading, patch, appendDelta, appendTool, messages, conversationId]
+    [loading, patch, appendDelta, appendTool, appendThinking, messages, conversationId]
   );
 
   const reset = useCallback(() => {
