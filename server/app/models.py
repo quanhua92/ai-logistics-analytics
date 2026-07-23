@@ -2,9 +2,12 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import BigInteger, Date, Index, Integer, Numeric, String
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+
+COMPLETED_STATUSES = ("delivered", "delayed")
 
 
 class Order(Base):
@@ -33,6 +36,35 @@ class Order(Base):
 
     region: Mapped[str] = mapped_column(String(15), index=True)
     warehouse: Mapped[str] = mapped_column(String(20), index=True)
+
+    @hybrid_property
+    def is_delayed(self) -> bool:
+        return self.status == "delayed"
+
+    @is_delayed.expression
+    @classmethod
+    def is_delayed(cls):
+        return cls.status == "delayed"
+
+    @hybrid_property
+    def is_completed(self) -> bool:
+        return self.status in COMPLETED_STATUSES
+
+    @is_completed.expression
+    @classmethod
+    def is_completed(cls):
+        return cls.status.in_(COMPLETED_STATUSES)
+
+    @hybrid_property
+    def delivery_time_days(self) -> int | None:
+        if self.delivery_date is None or self.order_date is None:
+            return None
+        return (self.delivery_date - self.order_date).days
+
+    @delivery_time_days.expression
+    @classmethod
+    def delivery_time_days(cls):
+        return cls.delivery_date - cls.order_date
 
 
 Index("ix_orders_carrier_status", Order.carrier, Order.status)
