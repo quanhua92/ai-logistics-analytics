@@ -25,7 +25,14 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
     );
   }
 
-  const hasChart = message.chartData && message.chartData.length > 0 && message.chartType;
+  // Render the chart card only for visual chart types. "table" is skipped
+  // because react-markdown already renders the model's markdown table — showing
+  // both would duplicate the data.
+  const hasChart =
+    !!message.chartData &&
+    message.chartData.length > 0 &&
+    !!message.chartType &&
+    message.chartType !== "table";
   const streamingPlaceholder = message.streaming && !message.content;
 
   return (
