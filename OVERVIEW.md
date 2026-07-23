@@ -215,6 +215,104 @@ Frontend renders: text + chart + explanation
 2. **Safe Query Construction**: The AI produces JSON query specs (filters, metrics, group_by). The Python backend validates these specs and constructs safe, parameterized SQLAlchemy queries.
 3. **Transparent Explainability**: Every query response is accompanied by metadata explaining *how* the answer was derived - filters, metric, group-by, and computation method.
 
+### One Registry, Three AI Surfaces
+
+The standout design decision: **one analytics registry powers every AI surface** - the dashboard, the internal chat agent, and external AI clients all answer from the same code. No drift, no duplicate logic.
+
+```
+                    Scenario Registry + Runner
+              (single source of truth - app/scenarios/)
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+   REST adapter       OpenAI adapter      MCP adapter
+   /api/dashboard     /api/chat           /mcp
+          │                 │                 │
+          ▼                 ▼                 ▼
+   Dashboard page    Internal chat       External AI
+   (browser)         (OpenAI GPT-4o      (Claude Code,
+                     function calling)    Cursor, ChatGPT)
+```
+
+The registry holds two kinds of analytics:
+
+- **Curated scenario catalog** - a fixed library of verified analytics (delay rate by carrier, on-time trend, p90 delivery, revenue Pareto, etc.). Each scenario declares its own SQL, chart type, and explanation template. Deterministic, safe, fully explainable.
+- **Open-ended query tool** - for ad-hoc questions the catalog doesn't cover, the AI emits a structured spec `{metric, group_by, filters}` and the backend builds parameterized SQL. Still no raw AI SQL.
+
+**Why three adapters?** Different AI clients speak different protocols:
+- The **dashboard** is a browser - it calls REST.
+- The **internal `/chat` agent** uses OpenAI function calling (GPT-4o invokes Python tool functions).
+- **External AI clients** (Claude Code, Cursor, ChatGPT) speak MCP and connect to `/mcp`.
+
+But all three adapters are thin wrappers over the same `runner.run(scenario_id)` call. Ask "which carrier has the highest delay rate?" in the web chat, in the dashboard, or from Claude Code connected to `/mcp` - identical answer, identical SQL, identical explanation.
+
+### Scenario Catalog
+
+The registry holds **33 scenarios** seeded by data exploration (`server/data/explorer.py`). Each is a runnable analytics unit the AI can pick (via `run_scenario`) and the dashboard can render. Every scenario appears identically in the explorer, this catalog, and the agent's system prompt.
+
+**Reliability & performance (8)**
+| id | answers | chart |
+|---|---|---|
+| `delay_rate_by_carrier` | Which carrier has the highest delay rate? | bar |
+| `delay_rate_by_region` | Which region has the worst delivery performance? | bar |
+| `warehouse_performance` | Which warehouse has the worst delay rate? | bar |
+| `on_time_trend` | Is delivery performance improving over the year? | line |
+| `delivery_time_percentiles` | How long do most orders take? (p50/p90/p95) | stat |
+| `exception_deepdive` | Show all exception orders and the carriers they hit | table |
+| `delay_rate_by_month` | Which months are worst for delays? | bar |
+| `delivery_time_by_month` | Does delivery slow down seasonally? | line |
+
+**Carrier deep-dive (4)**
+| id | answers | chart |
+|---|---|---|
+| `carrier_market_share` | Which carrier handles the most orders? | pie |
+| `avg_delivery_time_by_carrier` | Which carrier is fastest / slowest? | bar |
+| `revenue_by_carrier` | Which carrier drives the most revenue? | bar |
+| `carrier_reliability_trend` | Is each carrier improving or degrading over time? | multi-line |
+
+**Volume & revenue (8)**
+| id | answers | chart |
+|---|---|---|
+| `order_volume_by_month` | Show order volume trend over 2025 | area |
+| `delivery_performance_by_month` | Delivered vs delayed each month | stacked bar |
+| `order_volume_by_region` | Which region orders the most? | bar |
+| `revenue_by_region` | Revenue by region | bar |
+| `revenue_by_category` | Which category drives most revenue? | bar |
+| `top_clients` | Who are our top clients by orders? | bar |
+| `revenue_pareto` | What share of revenue comes from top clients? | stat |
+| `busiest_routes` | What are our busiest shipping lanes? | bar |
+
+**Routes & delivery (2)**
+| id | answers | chart |
+|---|---|---|
+| `slowest_routes` | Which routes take the longest? | bar |
+| `delivery_time_distribution` | How is delivery time distributed? | histogram |
+
+**Category & product (5)**
+| id | answers | chart |
+|---|---|---|
+| `avg_order_value_by_category` | Which category has the highest avg order value? | bar |
+| `top_skus` | What are our most-ordered SKUs? | bar |
+| `quantity_distribution` | What is the typical order size? | histogram |
+| `sku_concentration` | How concentrated is our SKU catalog? | stat |
+| `category_x_region` | Where does each category sell? (crosstab) | heatmap |
+
+**Operations & status (5)**
+| id | answers | chart |
+|---|---|---|
+| `status_distribution` | Order status breakdown | donut |
+| `day_of_week_pattern` | Which days get the most orders? | bar |
+| `order_value_distribution` | How are order values distributed? | histogram |
+| `promo_vs_nonpromo` | Do promo orders delay more than non-promo? | bar |
+| `delivery_time_by_region` | Delivery speed by region | bar |
+
+**Forecast (1)**
+| id | answers | chart |
+|---|---|---|
+| `forecast_demand` | Predict demand for a category for the next N months | line (historical + projection) |
+
+The curated catalog (32 analytics + 1 forecast) covers the vast majority of real questions; the open-ended query tool handles anything it doesn't.
+
 ---
 
 *That's the whole project. Dashboard, chat, forecast - one dataset, three ways to look at it.*
