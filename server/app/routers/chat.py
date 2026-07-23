@@ -122,18 +122,25 @@ async def chat_stream(
 
 
 @router.get("/chat")
-async def list_conversations() -> list[dict]:
-    """List recent conversations (newest first) — open, best-effort."""
+async def list_conversations(
+    x_chat_key: str | None = Header(default=None, alias="X-Chat-Key"),
+) -> list[dict]:
+    """List recent conversations (newest first). Key-gated, best-effort."""
+    _check_key(x_chat_key)
     return chat_log.list_conversations()
 
 
 @router.get("/chat/{conversation_id}")
-async def get_conversation(conversation_id: str):
-    """Replay one conversation's turns — open, best-effort.
+async def get_conversation(
+    conversation_id: str,
+    x_chat_key: str | None = Header(default=None, alias="X-Chat-Key"),
+):
+    """Replay one conversation's turns. Key-gated, best-effort.
 
     Returns 404 if the id is unsafe or the file is absent; never crashes on a
     malformed line (those are skipped server-side).
     """
+    _check_key(x_chat_key)
     turns = chat_log.read_conversation(conversation_id)
     if not turns:
         raise HTTPException(status_code=404, detail="conversation not found")

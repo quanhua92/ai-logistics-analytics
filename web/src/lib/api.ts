@@ -16,11 +16,17 @@ async function serverGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** Client-side fetch (relative URL) via the next.config rewrite proxy. */
+/** Client-side fetch (relative URL) via the catch-all Route Handler.
+ * Automatically sends the chat key hash for /api/chat paths (gated endpoints). */
 async function clientGet<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (path.startsWith("/api/chat")) {
+    const hash = getChatKeyHash();
+    if (hash) headers["X-Chat-Key"] = hash;
+  }
   const res = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: { ...headers, ...(init?.headers as Record<string, string> ?? {}) },
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   return (await res.json()) as T;
