@@ -66,7 +66,10 @@ You have these tools:
   visualization for the result (e.g. pie/donut for a part-of-whole split, line for
   a time trend); omit it to auto-select.
 - list_forecast_categories(): product categories available for forecasting.
-- forecast_demand(category, horizon_months): forecast monthly demand.
+- forecast_demand(category, horizon_months): forecast monthly demand. Returns THREE
+  statistical methods — exponential smoothing (primary), linear regression, and
+  3-month moving average — plus a stock recommendation. Reference all three; do
+  not claim there is only one method.
 - list_orders(filters, limit): return raw order rows (newest first) when the user
   asks to list/show/recent orders (NOT an aggregate). filters is a dict whose
   keys are carrier|region|status|category|client|sku|warehouse|is_promo|month;
@@ -144,7 +147,9 @@ def _make_tools(session: AsyncSession) -> list:
 
     @tool
     async def forecast_demand(category: str, horizon_months: int) -> dict:
-        """Forecast monthly demand for a product category over 1-12 months (pure statistics)."""
+        """Forecast monthly demand (pure statistics). Returns THREE methods: exponential
+        smoothing (primary), linear regression, and 3-month moving average — plus a
+        recommendation and methodology. Use all three when discussing the forecast."""
         return await forecast_tool.forecast_demand(category, horizon_months, session)
 
     @tool
