@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.scenarios import registry
-from app.tools import forecast_tool, orders_tool, query_tool, scenario_tool
+from app.tools import forecast_tool, orders_tool, plot_tool, query_tool, scenario_tool
 from app.utils import chat_log
 
 _MAX_STEPS = 6
@@ -67,6 +67,13 @@ You have these tools:
   asks to list/show/recent orders (NOT an aggregate). filters is a dict whose
   keys are carrier|region|status|category|client|sku|warehouse|is_promo|month;
   month is YYYY-MM (e.g. "2025-12"). limit defaults to 20, max 100.
+- plot_data(data, chart_type, x?, y?): visualize data you ALREADY retrieved as a
+  chart. chart_type ∈ bar|line|area|pie|donut. Pass the actual rows from a prior
+  list_orders/query_analytics result; x is the category/label field, y the value
+  field. NEVER invent or estimate data — only plot numbers from a prior result.
+  Use this when the user says "visualize/plot/chart it" about data you just
+  returned; pick sensible x/y fields and just plot it rather than asking them to
+  clarify.
 """
 
 
@@ -144,11 +151,24 @@ def _make_tools(session: AsyncSession) -> list:
         """Return raw order rows (newest first) for list/show/recent-order queries."""
         return await orders_tool.list_orders({"filters": filters, "limit": limit}, session)
 
+    @tool
+    async def plot_data(
+        data: list[dict],
+        chart_type: str,
+        x: str | None = None,
+        y: str | None = None,
+    ) -> dict:
+        """Plot a dataset as a chart. Use data from a prior tool result; never invent data."""
+        return await plot_tool.plot_data(
+            {"data": data, "chart_type": chart_type, "x": x, "y": y}, session
+        )
+
     return [
         list_scenarios,
         run_scenario,
         query_analytics,
         list_orders,
+        plot_data,
         list_forecast_categories,
         forecast_demand,
     ]
@@ -175,6 +195,12 @@ def _capture_chart(tool_name: str, result: Any) -> dict | None:
     if tool_name == "list_orders":
         return {
             "chart_type": "table",
+            "data": result.get("data"),
+            "explanation": result.get("explanation"),
+        }
+    if tool_name == "plot_data":
+        return {
+            "chart_type": result.get("chart_type"),
             "data": result.get("data"),
             "explanation": result.get("explanation"),
         }
