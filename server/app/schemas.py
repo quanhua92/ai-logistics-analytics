@@ -29,3 +29,16 @@ class KpiResponse(BaseModel):
     on_time_rate: float
     avg_delivery_days: float | None
     total_revenue: float
+
+
+class ChatRequest(BaseModel):
+    question: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    chart_type: str | None = None
+    chart_data: list[dict[str, Any]] | None = None
+    explanation: dict[str, Any] | None = None
+    scenario_id: str | None = None
+    title: str | None = None
