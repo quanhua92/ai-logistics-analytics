@@ -24,7 +24,7 @@ interface KpiCardProps {
 
 export function KpiCard({ label, value, hint, icon: Icon, tone = "neutral" }: KpiCardProps) {
   return (
-    <Card className="shadow-card gap-0 px-4 py-3.5">
+    <Card className="shadow-card transition-shadow duration-200 px-4 py-3.5 hover:shadow-card-hover gap-0">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-xs font-medium text-muted-foreground">{label}</div>

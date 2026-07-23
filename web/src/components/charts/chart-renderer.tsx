@@ -31,6 +31,21 @@ interface Props {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+const CURRENCY_KEYS = ["revenue", "value", "price", "avg_value"];
+const PERCENT_KEYS = ["rate", "share", "on_time"];
+
+function formatTipValue(name: string, value: unknown): string {
+  if (typeof value !== "number") return String(value ?? "");
+  const key = String(name).toLowerCase();
+  if (CURRENCY_KEYS.some((k) => key.includes(k))) {
+    return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  }
+  if (PERCENT_KEYS.some((k) => key.includes(k))) {
+    return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+  }
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -43,7 +58,7 @@ function ChartTooltip({ active, payload, label }: any) {
           <span className="size-2 rounded-full" style={{ background: p.color || p.fill }} />
           <span>{prettify(String(p.name))}</span>
           <span className="ml-auto font-medium text-foreground tabular-nums">
-            {typeof p.value === "number" ? p.value.toLocaleString() : String(p.value ?? "")}
+            {formatTipValue(String(p.name), p.value)}
           </span>
         </div>
       ))}
