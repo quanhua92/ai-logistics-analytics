@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import settings
-from app.db import create_db_lifespan
+from app.db import DbSession, create_db_lifespan
+from app.routers import dashboard
 
 app = FastAPI(
     title="AI Logistics Analytics API",
@@ -17,7 +19,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(dashboard.router)
+
 
 @app.get("/api/health")
-async def health():
-    return {"status": "ok"}
+async def health(db: DbSession):
+    await db.execute(text("SELECT 1"))
+    return {"status": "ok", "db": "connected"}
