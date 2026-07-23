@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Bot, Loader2, User, Wrench } from "lucide-react";
 
 import { ChartRenderer } from "@/components/charts/chart-renderer";
@@ -67,7 +68,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
             </p>
           ) : message.content ? (
             <div className="prose-chat rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2.5 text-sm leading-relaxed shadow-card">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
           ) : null}
 
