@@ -1,4 +1,4 @@
-import type { ChartResponse, ChatResponse, KpiResponse, KpiTrends, ScenarioMeta } from "./types";
+import type { ChartResponse, ChatResponse, ChartType, KpiResponse, KpiTrends, ScenarioMeta } from "./types";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 /** Server-side fetch (absolute URL) with Next.js cache + revalidate. */
@@ -95,11 +95,38 @@ async function postChat(path: string, question: string, history: ChatTurn[], con
   });
 }
 
+export interface ConversationTurn {
+  question: string;
+  answer: string;
+  tool_calls?: { name: string; label?: string; status?: string }[];
+  chart_type?: ChartType | null;
+  chart_data?: Record<string, unknown>[] | null;
+  explanation?: Record<string, unknown> | null;
+  scenario_id?: string | null;
+  title?: string | null;
+  error?: string | null;
+  ts?: string;
+}
+
+export interface ConversationSummary {
+  conversation_id: string;
+  first_question: string;
+  turn_count: number;
+  last_ts: string;
+}
+
 export const clientApi = {
   kpis: () => clientGet<KpiResponse>("/api/dashboard/kpis"),
   kpiTrends: () => clientGet<KpiTrends>("/api/dashboard/kpi-trends"),
   scenarios: () => clientGet<ScenarioMeta[]>("/api/dashboard/scenarios"),
   chart: (id: string) => clientGet<ChartResponse>(`/api/dashboard/charts/${id}`),
+  listConversations: () => clientGet<ConversationSummary[]>("/api/chat"),
+  getConversation: async (id: string) => {
+    const res = await clientGet<{ conversation_id: string; turns: ConversationTurn[] }>(
+      `/api/chat/${encodeURIComponent(id)}`
+    );
+    return res;
+  },
   chat: async (question: string, history: ChatTurn[], conversationId: string) => {
     const res = await postChat("/api/chat", question, history, conversationId);
     if (!res.ok) {

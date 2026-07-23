@@ -17,6 +17,7 @@ from app import schemas
 from app.config import settings
 from app.db import DbSession
 from app.services import ai_orchestrator
+from app.utils import chat_log
 from app.utils.input_guard import guard_input
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -95,3 +96,22 @@ async def chat_stream(
             yield _sse("error", {"detail": f"{type(exc).__name__}: {exc}"})
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+@router.get("/chat")
+async def list_conversations() -> list[dict]:
+    """List recent conversations (newest first) — open, best-effort."""
+    return chat_log.list_conversations()
+
+
+@router.get("/chat/{conversation_id}")
+async def get_conversation(conversation_id: str):
+    """Replay one conversation's turns — open, best-effort.
+
+    Returns 404 if the id is unsafe or the file is absent; never crashes on a
+    malformed line (those are skipped server-side).
+    """
+    turns = chat_log.read_conversation(conversation_id)
+    if not turns:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    return {"conversation_id": conversation_id, "turns": turns}

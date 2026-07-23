@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Bot, Check, Copy, RotateCcw, Sparkles } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { useChat } from "@/hooks/use-chat";
+
+function newId() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 const SUGGESTIONS = [
   "Which carrier has the highest delay rate?",
@@ -16,10 +23,23 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPage() {
-  const { messages, loading, send, reset, conversationId } = useChat();
+  const { messages, loading, send, loadConversation, conversationId } = useChat();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // The URL is the source of truth for which conversation is shown.
+  // ?c=<id> loads/replays it; no id creates one and puts it in the URL.
+  useEffect(() => {
+    const c = searchParams.get("c");
+    if (c) {
+      void loadConversation(c);
+    } else {
+      router.replace(`/chat?c=${newId()}`);
+    }
+  }, [searchParams, router, loadConversation]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -65,7 +85,7 @@ export default function ChatPage() {
         {!empty && (
           <button
             type="button"
-            onClick={reset}
+            onClick={() => router.push(`/chat?c=${newId()}`)}
             className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <RotateCcw className="size-3.5" />

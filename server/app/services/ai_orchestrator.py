@@ -270,7 +270,10 @@ async def ask_stream(
                 "tool_calls": tool_log,
                 "answer": answer,
                 "chart_type": chart_payload["chart_type"] if chart_payload else None,
+                "chart_data": chart_payload["data"] if chart_payload else None,
+                "explanation": chart_payload["explanation"] if chart_payload else None,
                 "scenario_id": chart_payload.get("scenario_id") if chart_payload else None,
+                "title": chart_payload.get("title") if chart_payload else None,
                 "error": error,
             },
         )
@@ -298,7 +301,9 @@ async def ask_stream(
                 except Exception as exc:  # surface tool errors to the model so it can recover
                     result = {"error": f"{type(exc).__name__}: {exc}"}
                     status = f"{type(exc).__name__}: {exc}"
-                tool_log.append({"name": name, "args": args, "status": status})
+                tool_log.append(
+                    {"name": name, "args": args, "status": status, "label": _tool_label(name, args)}
+                )
                 captured = _capture_chart(name, result)
                 if captured:
                     chart_payload = captured

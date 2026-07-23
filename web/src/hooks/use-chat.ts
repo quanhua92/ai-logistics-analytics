@@ -145,5 +145,44 @@ export function useChat() {
     setConversationId(id);
   }, []);
 
-  return { messages, loading, send, reset, conversationId };
+  const loadConversation = useCallback(async (id: string) => {
+    if (!id) return;
+    abortRef.current = true;
+    setLoading(false);
+    try {
+      const data = await clientApi.getConversation(id);
+      const msgs: ChatMessageData[] = [];
+      for (const t of data.turns ?? []) {
+        if (!t || typeof t !== "object") continue; // best-effort: skip bad rows
+        const q = String(t.question ?? "").trim();
+        const a = String(t.answer ?? "").trim();
+        if (q) msgs.push({ id: nextId(), role: "user", content: q });
+        if (a || t.error) {
+          msgs.push({
+            id: nextId(),
+            role: "assistant",
+            content: a,
+            error: !!t.error,
+            tools: (t.tool_calls ?? [])
+              .filter((tc) => tc && tc.name)
+              .map((tc) => ({ name: String(tc.name), label: String(tc.label ?? tc.name) })),
+            chartType: (t.chart_type as ChartType | null | undefined) ?? null,
+            chartData: t.chart_data ?? null,
+            explanation: (t.explanation as ChatExplanation | null | undefined) ?? null,
+            scenarioId: t.scenario_id ?? null,
+          });
+        }
+      }
+      setMessages(msgs);
+      setConversationId(id);
+      persistId(id);
+    } catch {
+      // best-effort: if the conversation can't be loaded, start fresh with this id
+      setMessages([]);
+      setConversationId(id);
+      persistId(id);
+    }
+  }, []);
+
+  return { messages, loading, send, reset, loadConversation, conversationId };
 }
