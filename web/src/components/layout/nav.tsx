@@ -83,7 +83,7 @@ function AppSidebar() {
                       render={<Link href={href} />}
                       isActive={active}
                       tooltip={label}
-                      className="data-active:bg-primary/10 data-active:text-primary"
+                      className="h-11 data-active:bg-primary/10 data-active:text-primary"
                     >
                       <Icon />
                       <span>{label}</span>
