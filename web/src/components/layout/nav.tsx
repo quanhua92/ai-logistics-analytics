@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { ConversationBadge } from "@/components/chat/conversation-badge";
@@ -50,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function AppSidebar() {
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
   return (
     <Sidebar>
       <SidebarHeader>
@@ -83,6 +85,7 @@ function AppSidebar() {
                       render={<Link href={href} />}
                       isActive={active}
                       tooltip={label}
+                      onClick={() => setOpenMobile(false)}
                       className="h-11 data-active:bg-primary/10 data-active:text-primary"
                     >
                       <Icon />
