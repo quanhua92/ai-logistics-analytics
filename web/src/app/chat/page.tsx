@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Bot, History, RotateCcw, Sparkles, Square } from "lucide-react";
+import { ArrowUp, Bot, History, Plus, RotateCcw, Sparkles, Square } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { HistoryDialog } from "@/components/chat/history-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getStoredConversationId, useChat } from "@/hooks/use-chat";
 
 function newId() {
@@ -29,6 +30,7 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -126,6 +128,37 @@ export default function ChatPage() {
 
       <div className="border-t bg-background/80 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-end gap-2 rounded-2xl border bg-card px-3 py-2 shadow-card focus-within:ring-2 focus-within:ring-ring/30">
+          <Popover open={suggestOpen} onOpenChange={setSuggestOpen}>
+            <PopoverTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label="Suggested questions"
+                  className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                />
+              }
+            >
+              <Plus className="size-4" />
+            </PopoverTrigger>
+            <PopoverContent side="top" align="start" className="w-80 p-1.5">
+              <div className="px-1.5 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Try asking
+              </div>
+              {SUGGESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => {
+                    submit(q);
+                    setSuggestOpen(false);
+                  }}
+                  className="block w-full rounded-md px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                >
+                  {q}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
           <textarea
             ref={textareaRef}
             value={input}
