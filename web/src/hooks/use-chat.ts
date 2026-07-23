@@ -1,8 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { sha256 } from "js-sha256";
 
-import { clientApi, type ChatTurn } from "@/lib/api";
+import {
+  clientApi,
+  clearChatKeyHash,
+  getChatKeyHash,
+  setChatKeyHash,
+  UnauthorizedError,
+  RateLimitError,
+  type ChatTurn,
+} from "@/lib/api";
 import type { ChatExplanation, ChartType } from "@/lib/types";
 
 export interface ChatMessageData {
@@ -63,6 +72,8 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState("");
+  const [locked, setLocked] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   /** Abort the in-flight stream (keeps whatever has streamed so far). */
@@ -70,10 +81,14 @@ export function useChat() {
     controllerRef.current?.abort();
   }, []);
 
-  // Hydrate the conversation id from localStorage on mount (SSR-safe).
+  // Hydrate the conversation id from localStorage on mount (SSR-safe), and
+  // show the access-key gate proactively when no key hash is stored — the
+  // client always requires a key.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time browser-API hydration
     setConversationId(loadOrCreateId());
+     
+    setLocked(!getChatKeyHash());
   }, []);
 
   const patch = useCallback((id: string, changes: Partial<ChatMessageData>) => {
@@ -162,6 +177,22 @@ export function useChat() {
           // Keep whatever streamed so far; just stop. (If the message was
           // cleared by reset/load, patching a gone id is a harmless no-op.)
           patch(assistantId, { streaming: false, status: null });
+        } else if (err instanceof UnauthorizedError) {
+          // Backend rejected the key (wrong key, or the server rotated it).
+          // Clear the stored hash and show the gate — with an error if a key
+          // had been stored (bad/rotated key). Roll back the failed turn.
+          const hadKey = !!getChatKeyHash();
+          clearChatKeyHash();
+          setAuthError(hadKey ? "That key didn't work — try again." : null);
+          setLocked(true);
+          setMessages((m) => m.filter((msg) => msg.id !== assistantId && msg.id !== userMsg.id));
+        } else if (err instanceof RateLimitError) {
+          patch(assistantId, {
+            content: "Too many requests — please slow down and try again.",
+            error: true,
+            streaming: false,
+            status: null,
+          });
         } else {
           const detail = err instanceof Error ? err.message : "Something went wrong";
           patch(assistantId, { content: detail, error: true, streaming: false, status: null });
@@ -173,6 +204,15 @@ export function useChat() {
     },
     [loading, patch, appendDelta, appendTool, appendThinking, messages, conversationId]
   );
+
+  /** Unlock with the raw key: hash it (SHA-256, never store raw), persist the
+   * hash, and hide the gate. Does NOT auto-send anything — the user sends after
+   * unlocking. */
+  const unlock = useCallback((rawKey: string) => {
+    setChatKeyHash(sha256(rawKey));
+    setAuthError(null);
+    setLocked(false);
+  }, []);
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
@@ -229,5 +269,5 @@ export function useChat() {
     }
   }, []);
 
-  return { messages, loading, send, stop, reset, loadConversation, conversationId };
+  return { messages, loading, send, stop, reset, loadConversation, conversationId, locked, authError, unlock };
 }

@@ -6,6 +6,7 @@ import { ArrowUp, Bot, History, Plus, RotateCcw, Sparkles, Square } from "lucide
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { HistoryDialog } from "@/components/chat/history-dialog";
+import { KeyGate } from "@/components/chat/key-gate";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getStoredConversationId, useChat } from "@/hooks/use-chat";
 
@@ -25,7 +26,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPage() {
-  const { messages, loading, send, stop, loadConversation, conversationId } = useChat();
+  const { messages, loading, send, stop, loadConversation, conversationId, locked, authError, unlock } = useChat();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [input, setInput] = useState("");
@@ -75,6 +76,10 @@ export default function ChatPage() {
   };
 
   const empty = messages.length === 0;
+
+  if (locked) {
+    return <KeyGate onUnlock={unlock} error={authError} />;
+  }
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-4.5rem)] max-w-3xl flex-col">

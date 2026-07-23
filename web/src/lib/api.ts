@@ -106,6 +106,58 @@ export interface ChatTurn {
   content: string;
 }
 
+const KEY_STORAGE = "logistics.chat.keyHash";
+
+/** Chat access-key helpers. Only the SHA-256 hash is stored/sent — never the raw key. */
+export function getChatKeyHash(): string | null {
+  try {
+    return localStorage.getItem(KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+export function setChatKeyHash(hash: string) {
+  try {
+    localStorage.setItem(KEY_STORAGE, hash);
+  } catch {
+    /* storage unavailable */
+  }
+}
+export function clearChatKeyHash() {
+  try {
+    localStorage.removeItem(KEY_STORAGE);
+  } catch {
+    /* ignore */
+  }
+}
+
+export class UnauthorizedError extends Error {
+  constructor() {
+    super("invalid or missing access key");
+    this.name = "UnauthorizedError";
+  }
+}
+export class RateLimitError extends Error {
+  constructor() {
+    super("Too many requests — please slow down.");
+    this.name = "RateLimitError";
+  }
+}
+
+function chatHeaders(): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  const hash = getChatKeyHash();
+  if (hash) h["X-Chat-Key"] = hash;
+  return h;
+}
+
+async function chatHttpError(res: Response): Promise<Error> {
+  if (res.status === 401) return new UnauthorizedError();
+  if (res.status === 429) return new RateLimitError();
+  const detail = await res.json().catch(() => ({}));
+  return new Error(detail.detail ?? `API ${res.status}`);
+}
+
 async function postChat(
   path: string,
   question: string,
@@ -115,7 +167,7 @@ async function postChat(
 ) {
   return fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: chatHeaders(),
     body: JSON.stringify({ question, history, conversation_id: conversationId }),
     signal,
   });
@@ -155,10 +207,7 @@ export const clientApi = {
   },
   chat: async (question: string, history: ChatTurn[], conversationId: string) => {
     const res = await postChat("/api/chat", question, history, conversationId);
-    if (!res.ok) {
-      const detail = await res.json().catch(() => ({}));
-      throw new Error(detail.detail ?? `API ${res.status}`);
-    }
+    if (!res.ok) throw await chatHttpError(res);
     return (await res.json()) as ChatResponse;
   },
   chatStream: async (
@@ -169,10 +218,7 @@ export const clientApi = {
     signal?: AbortSignal
   ): Promise<void> => {
     const res = await postChat("/api/chat/stream", question, history, conversationId, signal);
-    if (!res.ok) {
-      const detail = await res.json().catch(() => ({}));
-      throw new Error(detail.detail ?? `API ${res.status}`);
-    }
+    if (!res.ok) throw await chatHttpError(res);
     await consumeChatStream(res, h);
   },
   forecastCategories: () => clientGet<string[]>("/api/forecast/categories"),
